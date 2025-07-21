@@ -1,15 +1,12 @@
-
 #include <Arduino.h>
 #include "configuration.h"
-
 #include "LaserSensor.h"
-
 #include "Stopwatch.h"
-
-
 #include "StopwatchDisplay.h"
 #include "WebServerManager.h"
 #include <WiFi.h>
+#include "StatusLed.h"
+#include "SdCardManager.h"
 
 
 
@@ -19,21 +16,26 @@ Stopwatch stopwatch;
 
 
 StopwatchDisplay stopwatchDisplay(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES, TOTAL_COLUMNS);
-
-
-
-
+StatusLed statusLed(27);
+// SD card pins: CS=13, MOSI=15, MISO=2, CLK=14
+SdCardManager sdCard(13, 15, 2, 14);
 WebServerManager webServer;
 unsigned long bestTime = 0;
 unsigned long totalTime = 0;
 int finishedCount = 0;
 
 void setup() {
+    if (sdCard.begin()) {
+        Serial.println("SD card initialized.");
+    } else {
+        Serial.println("SD card initialization failed!");
+    }
     Serial.begin(115200);
     laserSensor.begin();
     stopwatchDisplay.begin();
     stopwatchDisplay.setIntensity(8); // Set medium brightness
     stopwatchDisplay.clear();
+    statusLed.begin();
 
     // Set up ESP32 as Access Point
     const char* ap_ssid = "StopwatchAP";
@@ -56,15 +58,13 @@ int transitionCount = 0;
 bool lastLaserState = true; // assume starts ACTIVE
 unsigned long ignoreUntil = 0;
 
-// ...existing code...
-
 void loop() {
     bool active = laserSensor.isActive();
+    statusLed.set(active);
     // Ignore sensor for 3 seconds after each break
     unsigned long now = millis();
     if (now < ignoreUntil) {
         lastLaserState = active;
-        // ...existing code...
         static char lastBuffer[20] = "";
         char buffer[20];
         unsigned long e = stopwatch.elapsed();
@@ -95,6 +95,13 @@ void loop() {
             stopwatch.printResult(Serial);
             unsigned long lastTime = stopwatch.elapsed();
             webServer.addElapsed(lastTime);
+            if (sdCard.isReady()) {
+                if (sdCard.logTime(lastTime)) {
+                    Serial.println("Time logged to SD card.");
+                } else {
+                    Serial.println("Failed to log time to SD card.");
+                }
+            }
             if (bestTime == 0 || lastTime < bestTime) bestTime = lastTime;
             totalTime += lastTime;
             finishedCount++;

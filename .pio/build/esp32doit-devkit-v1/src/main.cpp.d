@@ -201,4 +201,8 @@
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/WebServer/src/HTTP_Method.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/nghttp/port/include/http_parser.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/WebServer/src/Uri.h \
- C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/WebServer/src/detail/RequestHandler.h
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/WebServer/src/detail/RequestHandler.h \
+ include/StatusLed.h include/SdCardManager.h \
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/SD.h \
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/FS/src/FS.h \
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h
