@@ -1,14 +1,42 @@
 #include "WebServerManager.h"
-
-
+#include "SdCardManager.h"
 #include <vector>
 #include <algorithm>
 
 WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
 
-void WebServerManager::begin() {
-    _server.on("/", [this]() { handleRoot(); });
+void WebServerManager::begin(SdCardManager* sdCard) {
+    _sdCard = sdCard;
+    _server.on("/", std::bind(&WebServerManager::handleRoot, this));
+    _server.on("/wifi", std::bind(&WebServerManager::handleWifiForm, this));
+    _server.on("/savewifi", HTTP_POST, std::bind(&WebServerManager::handleWifiSave, this));
+    _server.on("/clear", HTTP_POST, std::bind(&WebServerManager::handleClear, this));
     _server.begin();
+}
+
+void WebServerManager::handleWifiForm() {
+    String html = "<html><head><title>WiFi Setup</title></head><body>";
+    html += "<h1>Enter WiFi Credentials</h1>";
+    html += "<form method='POST' action='/savewifi'>";
+    html += "SSID: <input name='ssid'><br>";
+    html += "Password: <input name='password' type='password'><br>";
+    html += "<input type='submit' value='Save'>";
+    html += "</form></body></html>";
+    _server.send(200, "text/html", html);
+}
+
+void WebServerManager::handleWifiSave() {
+    if (!_sdCard) {
+        _server.send(500, "text/plain", "SD not available");
+        return;
+    }
+    String ssid = _server.arg("ssid");
+    String password = _server.arg("password");
+    if (_sdCard->saveWifiCredentials(ssid, password)) {
+        _server.send(200, "text/html", "<html><body>Saved! Please reboot device.</body></html>");
+    } else {
+        _server.send(500, "text/html", "<html><body>Failed to save credentials.</body></html>");
+    }
 }
 
 
@@ -51,6 +79,21 @@ void WebServerManager::handleRoot() {
         html += "<tr><td>" + String(i+1) + "</td><td>" + formatTime(sorted[i]) + "</td></tr>";
     }
     html += "</table>";
+    html += "<br><form action='/wifi' method='get'><button type='submit'>WiFi Setup</button></form>";
+    html += "<br><form action='/clear' method='post' onsubmit='return confirm(\"Clear all times?\");'><button type='submit' style='background:#c00;color:#fff;'>Clear All Times</button></form>";
     html += "</body></html>";
     _server.send(200, "text/html", html);
+}
+
+void WebServerManager::handleClear() {
+    _elapsedTimes.clear();
+    if (_sdCard && _sdCard->isReady()) {
+        SD.remove("/times.csv");
+    }
+    _lastTime = 0;
+    _bestTime = 0;
+    _avgTime = 0;
+    _count = 0;
+    _server.sendHeader("Location", "/", true);
+    _server.send(302, "text/plain", "Redirecting...");
 }

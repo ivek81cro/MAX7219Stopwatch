@@ -25,30 +25,70 @@ unsigned long totalTime = 0;
 int finishedCount = 0;
 
 void setup() {
-    if (sdCard.begin()) {
-        Serial.println("SD card initialized.");
-    } else {
-        Serial.println("SD card initialization failed!");
-    }
     Serial.begin(115200);
+    bool sdOk = sdCard.begin();
+    Serial.println(sdOk ? "SD card initialized." : "SD card initialization failed!");
     laserSensor.begin();
     stopwatchDisplay.begin();
     stopwatchDisplay.setIntensity(8); // Set medium brightness
     stopwatchDisplay.clear();
     statusLed.begin();
 
-    // Set up ESP32 as Access Point
-    const char* ap_ssid = "StopwatchAP";
-    const char* ap_password = "12345678";
-    WiFi.softAP(ap_ssid, ap_password);
-    delay(100); // Give AP time to start
-    IPAddress apIP = WiFi.softAPIP();
-    Serial.print("ESP32 AP SSID: ");
-    Serial.println(ap_ssid);
-    Serial.print("AP IP address: ");
-    Serial.println(apIP);
+    String ssid, password;
+    bool credsOk = sdOk && sdCard.loadWifiCredentials(ssid, password);
+    if (credsOk) {
+        Serial.print("Connecting to WiFi SSID: ");
+        Serial.println(ssid);
+        WiFi.begin(ssid.c_str(), password.c_str());
+        int tries = 0;
+        while (WiFi.status() != WL_CONNECTED && tries < 20) {
+            delay(500);
+            Serial.print(".");
+            tries++;
+        }
+        Serial.println();
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.print("Connected! IP address: ");
+            Serial.println(WiFi.localIP());
+        } else {
+            Serial.println("WiFi connect failed, starting AP mode.");
+            WiFi.softAP("StopwatchAP", "12345678");
+            delay(100);
+            Serial.print("ESP32 AP SSID: StopwatchAP\nAP IP address: ");
+            Serial.println(WiFi.softAPIP());
+        }
+    } else {
+        WiFi.softAP("StopwatchAP", "12345678");
+        delay(100);
+        Serial.print("ESP32 AP SSID: StopwatchAP\nAP IP address: ");
+        Serial.println(WiFi.softAPIP());
+    }
 
-    webServer.begin();
+    webServer.begin(&sdCard);
+
+    // Load times from SD card if available
+    if (sdOk) {
+        File file = SD.open("/times.csv", FILE_READ);
+        if (file) {
+            while (file.available()) {
+                String line = file.readStringUntil('\n');
+                line.trim();
+                if (line.length() > 0) {
+                    // Parse mm:ss:ms
+                    int firstColon = line.indexOf(':');
+                    int secondColon = line.lastIndexOf(':');
+                    if (firstColon > 0 && secondColon > firstColon) {
+                        unsigned int minutes = line.substring(0, firstColon).toInt();
+                        unsigned int seconds = line.substring(firstColon + 1, secondColon).toInt();
+                        unsigned int milliseconds = line.substring(secondColon + 1).toInt();
+                        unsigned long ms = minutes * 60000UL + seconds * 1000UL + milliseconds;
+                        webServer.addElapsed(ms);
+                    }
+                }
+            }
+            file.close();
+        }
+    }
 }
 
 

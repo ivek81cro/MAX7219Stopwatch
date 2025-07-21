@@ -16,7 +16,7 @@ void setup() {
     Serial.println(writeOk ? "OK" : "FAIL");
 
     // Test read
-    File file = SD.open("times.csv", FILE_READ);
+    File file = SD.open("/times.csv", FILE_READ);
     if (file) {
         Serial.println("Read test: OK");
         while (file.available()) {
