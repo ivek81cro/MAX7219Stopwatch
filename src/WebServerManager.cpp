@@ -33,7 +33,9 @@ void WebServerManager::handleWifiSave() {
     String ssid = _server.arg("ssid");
     String password = _server.arg("password");
     if (_sdCard->saveWifiCredentials(ssid, password)) {
-        _server.send(200, "text/html", "<html><body>Saved! Please reboot device.</body></html>");
+        _server.send(200, "text/html", "<html><body>Saved! Rebooting...</body></html>");
+        delay(500);
+        ESP.restart();
     } else {
         _server.send(500, "text/html", "<html><body>Failed to save credentials.</body></html>");
     }
@@ -66,7 +68,7 @@ String WebServerManager::formatTime(unsigned long ms) const {
 
 void WebServerManager::handleRoot() {
     String html = "<html><head><title>Stopwatch Stats</title>";
-    html += "<meta http-equiv='refresh' content='10'>";
+    html += "<meta http-equiv='refresh' content='5'>";
     html += "<style>table{border-collapse:collapse;}td,th{border:1px solid #888;padding:4px;}th{background:#eee;}</style></head><body>";
     html += "<h1>Stopwatch Statistics</h1>";
     html += "<p>Last Time: " + formatTime(_lastTime) + "</p>";
