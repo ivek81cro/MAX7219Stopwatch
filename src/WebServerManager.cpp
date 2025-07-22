@@ -65,7 +65,9 @@ String WebServerManager::formatTime(unsigned long ms) const {
 }
 
 void WebServerManager::handleRoot() {
-    String html = "<html><head><title>Stopwatch Stats</title><style>table{border-collapse:collapse;}td,th{border:1px solid #888;padding:4px;}th{background:#eee;}</style></head><body>";
+    String html = "<html><head><title>Stopwatch Stats</title>";
+    html += "<meta http-equiv='refresh' content='10'>";
+    html += "<style>table{border-collapse:collapse;}td,th{border:1px solid #888;padding:4px;}th{background:#eee;}</style></head><body>";
     html += "<h1>Stopwatch Statistics</h1>";
     html += "<p>Last Time: " + formatTime(_lastTime) + "</p>";
     html += "<p>Best Time: " + formatTime(_bestTime) + "</p>";
@@ -88,12 +90,10 @@ void WebServerManager::handleRoot() {
 void WebServerManager::handleClear() {
     _elapsedTimes.clear();
     if (_sdCard && _sdCard->isReady()) {
-        SD.remove("/times.csv");
+        File file = SD.open("/times.csv", FILE_WRITE);
+        if (file) file.close(); // Truncate file to zero length
     }
-    _lastTime = 0;
-    _bestTime = 0;
-    _avgTime = 0;
-    _count = 0;
+    updateStats(0, 0, 0, 0);
     _server.sendHeader("Location", "/", true);
     _server.send(302, "text/plain", "Redirecting...");
 }
