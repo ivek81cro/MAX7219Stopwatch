@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include "StopwatchDisplay.h"
 
 StopwatchDisplay* StopwatchDisplay::_instance = nullptr;
 
@@ -14,7 +15,6 @@ StopwatchDisplay& StopwatchDisplay::getInstance(
     }
     return *_instance;
 }
-#include "StopwatchDisplay.h"
 
 StopwatchDisplay::StopwatchDisplay(MD_MAX72XX::moduleType_t hardwareType, uint8_t dataPin, uint8_t clkPin, uint8_t csPin, uint8_t maxDevices, uint8_t totalColumns)
     : _mx(hardwareType, dataPin, clkPin, csPin, maxDevices), _totalColumns(totalColumns) {}

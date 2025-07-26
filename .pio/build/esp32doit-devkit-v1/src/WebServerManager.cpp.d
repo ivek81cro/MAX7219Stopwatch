@@ -202,4 +202,7 @@
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/FS/src/FS.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src/SPI.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-spi.h \
- C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h \
+ include/StopwatchDisplay.h \
+ .pio/libdeps/esp32doit-devkit-v1/MD_MAX72XX/src/MD_MAX72XX.h \
+ include/Stopwatch.h

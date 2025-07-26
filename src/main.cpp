@@ -12,10 +12,6 @@
 
 
 LaserSensor laserSensor(LASER_SENSOR_PIN);
-Stopwatch stopwatch;
-
-
-StopwatchDisplay stopwatchDisplay(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES, TOTAL_COLUMNS);
 StatusLed statusLed(27);
 // SD card pins: CS=13, MOSI=15, MISO=2, CLK=14
 SdCardManager sdCard(13, 15, 2, 14);
@@ -29,9 +25,9 @@ void setup() {
     bool sdOk = sdCard.begin();
     Serial.println(sdOk ? "SD card initialized." : "SD card initialization failed!");
     laserSensor.begin();
-    stopwatchDisplay.begin();
-    stopwatchDisplay.setIntensity(8); // Set medium brightness
-    stopwatchDisplay.clear();
+    StopwatchDisplay::getInstance(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES, TOTAL_COLUMNS).begin();
+    StopwatchDisplay::getInstance().setIntensity(8); // Set medium brightness
+    StopwatchDisplay::getInstance().clear();
     statusLed.begin();
 
     String ssid, password;
@@ -107,17 +103,17 @@ void loop() {
         lastLaserState = active;
         static char lastBuffer[20] = "";
         char buffer[20];
-        unsigned long e = stopwatch.elapsed();
+        unsigned long e = Stopwatch::getInstance().elapsed();
         unsigned int minutes = e / 60000;
         unsigned int seconds = (e % 60000) / 1000;
         unsigned int centiseconds = (e % 1000) / 10; // two decimals
         sprintf(buffer, "%02u:%02u:%02u", minutes, seconds, centiseconds);
         if (strcmp(buffer, lastBuffer) != 0) {
-            stopwatchDisplay.showTime(buffer);
+            StopwatchDisplay::getInstance().showTime(buffer);
             strcpy(lastBuffer, buffer);
         }
-        if (stopwatch.isRunning()) {
-            stopwatch.printElapsed(Serial);
+        if (Stopwatch::getInstance().isRunning()) {
+            Stopwatch::getInstance().printElapsed(Serial);
         }
         delay(50);
         return;
@@ -128,12 +124,12 @@ void loop() {
         transitionCount++;
         ignoreUntil = now + 3000; // ignore for next 3 seconds
         if (transitionCount == 1) {
-            stopwatch.start();
+            Stopwatch::getInstance().start();
             Serial.println("Stopwatch started!");
-        } else if (transitionCount == 2 && stopwatch.isRunning()) {
-            stopwatch.stop();
-            stopwatch.printResult(Serial);
-            unsigned long lastTime = stopwatch.elapsed();
+        } else if (transitionCount == 2 && Stopwatch::getInstance().isRunning()) {
+            Stopwatch::getInstance().stop();
+            Stopwatch::getInstance().printResult(Serial);
+            unsigned long lastTime = Stopwatch::getInstance().elapsed();
             webServer.addElapsed(lastTime);
             if (sdCard.isReady()) {
                 if (sdCard.logTime(lastTime)) {
@@ -147,8 +143,8 @@ void loop() {
             finishedCount++;
             unsigned long avgTime = finishedCount ? totalTime / finishedCount : 0;
             webServer.updateStats(lastTime, bestTime, avgTime, finishedCount);
-        } else if (transitionCount == 3 && stopwatch.isStopped()) {
-            stopwatch.reset();
+        } else if (transitionCount == 3 && Stopwatch::getInstance().isStopped()) {
+            Stopwatch::getInstance().reset();
             transitionCount = 0;
             Serial.println("Stopwatch reset and ready for new start.");
         }
@@ -157,18 +153,18 @@ void loop() {
 
     static char lastBuffer[20] = "";
     char buffer[20];
-    unsigned long e = stopwatch.elapsed();
+    unsigned long e = Stopwatch::getInstance().elapsed();
     unsigned int minutes = e / 60000;
     unsigned int seconds = (e % 60000) / 1000;
     unsigned int centiseconds = (e % 1000) / 10; // two decimals
     sprintf(buffer, "%02u:%02u:%02u", minutes, seconds, centiseconds);
     if (strcmp(buffer, lastBuffer) != 0) {
-        stopwatchDisplay.showTime(buffer);
+        StopwatchDisplay::getInstance().showTime(buffer);
         strcpy(lastBuffer, buffer);
     }
 
-    if (stopwatch.isRunning()) {
-        stopwatch.printElapsed(Serial);
+    if (Stopwatch::getInstance().isRunning()) {
+        Stopwatch::getInstance().printElapsed(Serial);
     }
 
     webServer.handleClient();
