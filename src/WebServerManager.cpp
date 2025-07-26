@@ -49,8 +49,6 @@ void WebServerManager::handleWifiSave() {
 void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count) {
     _lastTime = lastTime;
     _bestTime = bestTime;
-    _avgTime = avgTime;
-    _count = count;
 }
 
 void WebServerManager::addElapsed(unsigned long elapsed) {
@@ -77,8 +75,6 @@ void WebServerManager::handleRoot() {
     html += "<h1>Stopwatch Statistics</h1>";
     html += "<p>Last Time: " + formatTime(_lastTime) + "</p>";
     html += "<p>Best Time: " + formatTime(_bestTime) + "</p>";
-    html += "<p>Average Time: " + formatTime(_avgTime) + "</p>";
-    html += "<p>Count: " + String(_count) + "</p>";
     html += "<h2>All Elapsed Times</h2>";
     html += "<table><tr><th>#</th><th>Time</th></tr>";
     std::vector<unsigned long> sorted = _elapsedTimes;
