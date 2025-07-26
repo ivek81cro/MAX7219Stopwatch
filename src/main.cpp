@@ -7,7 +7,8 @@
 #include <WiFi.h>
 #include "StatusLed.h"
 #include "SdCardManager.h"
-#include "SPIFFS.h"
+#include <FS.h>
+#include <SPIFFS.h>
 
 
 

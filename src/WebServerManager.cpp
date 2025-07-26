@@ -13,22 +13,33 @@ WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0),
 void WebServerManager::begin(SdCardManager* sdCard) {
     _sdCard = sdCard;
     _server.on("/", std::bind(&WebServerManager::handleRoot, this));
+    _server.on("/index.html", std::bind(&WebServerManager::handleRoot, this));
     _server.on("/wifi", std::bind(&WebServerManager::handleWifiForm, this));
     _server.on("/savewifi", HTTP_POST, std::bind(&WebServerManager::handleWifiSave, this));
     _server.on("/clear", HTTP_POST, std::bind(&WebServerManager::handleClear, this));
     _server.on("/reset", HTTP_POST, std::bind(&WebServerManager::handleReset, this));
+    _server.on("/style.css", HTTP_GET, [this]() {
+        File file = SPIFFS.open("/style.css", "r");
+        if (file) {
+            String css = file.readString();
+            file.close();
+            _server.send(200, "text/css", css);
+        } else {
+            _server.send(404, "text/plain", "style.css not found");
+        }
+    });
     _server.begin();
 }
 
 void WebServerManager::handleWifiForm() {
-    String html = "<html><head><title>WiFi Setup</title></head><body>";
-    html += "<h1>Enter WiFi Credentials</h1>";
-    html += "<form method='POST' action='/savewifi'>";
-    html += "SSID: <input name='ssid'><br>";
-    html += "Password: <input name='password' type='password'><br>";
-    html += "<input type='submit' value='Save'>";
-    html += "</form></body></html>";
-    _server.send(200, "text/html", html);
+    File file = SPIFFS.open("/wifi.html", "r");
+    if (file) {
+        String html = file.readString();
+        file.close();
+        _server.send(200, "text/html", html);
+    } else {
+        _server.send(500, "text/plain", "wifi.html not found");
+    }
 }
 
 void WebServerManager::handleWifiSave() {
