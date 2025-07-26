@@ -205,4 +205,5 @@
  include/StatusLed.h include/SdCardManager.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/SD.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/FS/src/FS.h \
- C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h \
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src/SPIFFS.h

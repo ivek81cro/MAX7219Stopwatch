@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="5">
+    <title>Stopwatch Stats</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <h1>Stopwatch Statistics</h1>
+    <p style='text-align:center;'>Last Time: %LAST%</p>
+    <p style='text-align:center;'>Best Time: %BEST%</p>
+    <h2>All Elapsed Times</h2>
+    <table>
+        <tr><th>#</th><th>Time</th></tr>
+        %TABLE%
+    </table>
+    <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
+    <form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form>
+    <form action='/clear' method='post' onsubmit='return confirm("Clear all times?");'>
+        <button class='btn btn-clear'>Clear All Times</button>
+    </form>
+</body>
+</html>

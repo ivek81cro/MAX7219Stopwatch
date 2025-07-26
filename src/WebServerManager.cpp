@@ -4,6 +4,8 @@
 #include "Stopwatch.h"
 #include <vector>
 #include <algorithm>
+#include <FS.h>
+#include <SPIFFS.h>
 
 WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
 
@@ -69,104 +71,25 @@ String WebServerManager::formatTime(unsigned long ms) const {
 }
 
 void WebServerManager::handleRoot() {
-    String html = R"rawliteral(
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="refresh" content="5">
-        <title>Stopwatch Stats</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 20px;
-                padding: 0;
-                background: #f4f4f4;
-                color: #333;
-            }
-            h1, h2 {
-                text-align: center;
-            }
-            table {
-                width: 100%;
-                max-width: 600px;
-                margin: 20px auto;
-                border-collapse: collapse;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                background: #fff;
-            }
-            th, td {
-                padding: 12px;
-                border: 1px solid #ddd;
-                text-align: center;
-            }
-            th {
-                background-color: #f0f0f0;
-            }
-            .btn {
-                display: block;
-                width: 200px;
-                margin: 10px auto;
-                padding: 10px;
-                text-align: center;
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                text-decoration: none;
-                font-size: 16px;
-                cursor: pointer;
-            }
-            .btn:hover {
-                opacity: 0.9;
-            }
-            .btn-reset { background-color: #28a745; }
-            .btn-clear { background-color: #dc3545; }
-            @media (max-width: 600px) {
-                table, th, td {
-                    font-size: 14px;
-                }
-                .btn {
-                    width: 90%;
-                    font-size: 14px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Stopwatch Statistics</h1>
-        <p style='text-align:center;'>Last Time: %LAST%</p>
-        <p style='text-align:center;'>Best Time: %BEST%</p>
-
-        <h2>All Elapsed Times</h2>
-        <table>
-            <tr><th>#</th><th>Time</th></tr>
-    )rawliteral";
-
-    // Dinamički sadržaj: sortiranje i popunjavanje tablice
+    String html;
+    File file = SPIFFS.open("/index.html", "r");
+    if (file) {
+        html = file.readString();
+        file.close();
+    } else {
+        _server.send(500, "text/plain", "index.html not found");
+        return;
+    }
+    // Generate table rows
+    String tableRows;
     std::vector<unsigned long> sorted = _elapsedTimes;
     std::sort(sorted.begin(), sorted.end());
     for (size_t i = 0; i < sorted.size(); ++i) {
-        html += "<tr><td>" + String(i + 1) + "</td><td>" + formatTime(sorted[i]) + "</td></tr>";
+        tableRows += "<tr><td>" + String(i + 1) + "</td><td>" + formatTime(sorted[i]) + "</td></tr>";
     }
-
-    // Dodavanje gumba
-    html += R"rawliteral(
-        </table>
-        <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
-        <form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form>
-        <form action='/clear' method='post' onsubmit='return confirm("Clear all times?");'>
-            <button class='btn btn-clear'>Clear All Times</button>
-        </form>
-    </body>
-    </html>
-    )rawliteral";
-
-    // Zamjena placeholdera s pravim vrijednostima
     html.replace("%LAST%", formatTime(_lastTime));
     html.replace("%BEST%", formatTime(_bestTime));
-
+    html.replace("%TABLE%", tableRows);
     _server.send(200, "text/html", html);
 }
 

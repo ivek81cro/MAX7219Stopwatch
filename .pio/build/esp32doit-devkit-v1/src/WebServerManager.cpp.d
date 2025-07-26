@@ -205,4 +205,5 @@
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h \
  include/StopwatchDisplay.h \
  .pio/libdeps/esp32doit-devkit-v1/MD_MAX72XX/src/MD_MAX72XX.h \
- include/Stopwatch.h
+ include/Stopwatch.h \
+ C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src/SPIFFS.h

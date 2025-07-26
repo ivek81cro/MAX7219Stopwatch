@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include "StatusLed.h"
 #include "SdCardManager.h"
+#include "SPIFFS.h"
 
 
 
@@ -84,6 +85,10 @@ void setup() {
             }
             file.close();
         }
+    }
+
+    if (!SPIFFS.begin(true)) {
+        Serial.println("SPIFFS Mount Failed");
     }
 }
 
