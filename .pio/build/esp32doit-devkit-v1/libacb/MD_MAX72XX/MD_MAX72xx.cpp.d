@@ -1,5 +1,5 @@
 .pio/build/esp32doit-devkit-v1/libacb/MD_MAX72XX/MD_MAX72xx.cpp.o: \
- .pio/libdeps/esp32doit-devkit-v1/MD_MAX72XX/src/MD_MAX72XX.cpp \
+ .pio/libdeps/esp32doit-devkit-v1/MD_MAX72XX/src/MD_MAX72xx.cpp \
  .pio/libdeps/esp32doit-devkit-v1/MD_MAX72XX/src/MD_MAX72xx.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  C:/Users/Ivan/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp_arduino_version.h \

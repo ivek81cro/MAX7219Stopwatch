@@ -1,3 +1,15 @@
+#include <Arduino.h>
+#include <stddef.h>
+
+Stopwatch* Stopwatch::_instance = nullptr;
+
+Stopwatch& Stopwatch::getInstance() {
+    if (!_instance) {
+        _instance = new Stopwatch();
+    }
+    return *_instance;
+}
+
 #include "Stopwatch.h"
 
 Stopwatch::Stopwatch() : _startTime(0), _endTime(0), _running(false), _stopped(false) {}

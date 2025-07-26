@@ -28,6 +28,7 @@ private:
     void handleWifiForm();
     void handleWifiSave();
     void handleClear();
+    void handleReset();
     String formatTime(unsigned long ms) const;
 };
 

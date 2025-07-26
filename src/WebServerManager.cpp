@@ -1,9 +1,12 @@
 #include "WebServerManager.h"
 #include "SdCardManager.h"
+#include "StopwatchDisplay.h"
+#include "Stopwatch.h"
 #include <vector>
 #include <algorithm>
 
 WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
+
 
 void WebServerManager::begin(SdCardManager* sdCard) {
     _sdCard = sdCard;
@@ -11,6 +14,7 @@ void WebServerManager::begin(SdCardManager* sdCard) {
     _server.on("/wifi", std::bind(&WebServerManager::handleWifiForm, this));
     _server.on("/savewifi", HTTP_POST, std::bind(&WebServerManager::handleWifiSave, this));
     _server.on("/clear", HTTP_POST, std::bind(&WebServerManager::handleClear, this));
+    _server.on("/reset", HTTP_POST, std::bind(&WebServerManager::handleReset, this));
     _server.begin();
 }
 
@@ -84,9 +88,20 @@ void WebServerManager::handleRoot() {
     }
     html += "</table>";
     html += "<br><form action='/wifi' method='get'><button type='submit'>WiFi Setup</button></form>";
+    html += "<br><form action='/reset' method='post'><button type='submit' style='background:#06c;color:#fff;'>Reset Timer</button></form>";
     html += "<br><form action='/clear' method='post' onsubmit='return confirm(\"Clear all times?\");'><button type='submit' style='background:#c00;color:#fff;'>Clear All Times</button></form>";
     html += "</body></html>";
     _server.send(200, "text/html", html);
+}
+
+void WebServerManager::handleReset() {
+    updateStats(0, 0, 0, _count);
+    StopwatchDisplay::getInstance().showTime("00:00:00");
+    Stopwatch::getInstance().reset();
+    extern int transitionCount;
+    transitionCount = 0;
+    _server.sendHeader("Location", "/", true);
+    _server.send(302, "text/plain", "Redirecting...");
 }
 
 void WebServerManager::handleClear() {

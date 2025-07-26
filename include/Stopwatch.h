@@ -3,9 +3,10 @@
 
 #include <Arduino.h>
 
+
 class Stopwatch {
 public:
-    Stopwatch();
+    static Stopwatch& getInstance();
     void start();
     void stop();
     void reset();
@@ -15,6 +16,10 @@ public:
     void printElapsed(Stream& stream) const;
     void printResult(Stream& stream) const;
 private:
+    Stopwatch();
+    Stopwatch(const Stopwatch&) = delete;
+    Stopwatch& operator=(const Stopwatch&) = delete;
+    static Stopwatch* _instance;
     unsigned long _startTime;
     unsigned long _endTime;
     bool _running;

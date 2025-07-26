@@ -1,3 +1,19 @@
+#include <stddef.h>
+
+StopwatchDisplay* StopwatchDisplay::_instance = nullptr;
+
+StopwatchDisplay& StopwatchDisplay::getInstance(
+    MD_MAX72XX::moduleType_t hardwareType,
+    uint8_t dataPin,
+    uint8_t clkPin,
+    uint8_t csPin,
+    uint8_t maxDevices,
+    uint8_t totalColumns) {
+    if (!_instance) {
+        _instance = new StopwatchDisplay(hardwareType, dataPin, clkPin, csPin, maxDevices, totalColumns);
+    }
+    return *_instance;
+}
 #include "StopwatchDisplay.h"
 
 StopwatchDisplay::StopwatchDisplay(MD_MAX72XX::moduleType_t hardwareType, uint8_t dataPin, uint8_t clkPin, uint8_t csPin, uint8_t maxDevices, uint8_t totalColumns)
