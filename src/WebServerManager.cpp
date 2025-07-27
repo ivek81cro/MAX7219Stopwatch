@@ -98,8 +98,14 @@ void WebServerManager::handleRoot() {
     for (size_t i = 0; i < sorted.size(); ++i) {
         tableRows += "<tr><td>" + String(i + 1) + "</td><td>" + formatTime(sorted[i]) + "</td></tr>";
     }
+
+    // Always select best time from vector
+    unsigned long best = 0;
+    if (!sorted.empty()) {
+        best = sorted[0]; // sorted ascending, so first is best
+    }
     html.replace("%LAST%", formatTime(_lastTime));
-    html.replace("%BEST%", formatTime(_bestTime));
+    html.replace("%BEST%", formatTime(best));
     html.replace("%TABLE%", tableRows);
     _server.send(200, "text/html", html);
 }
@@ -117,11 +123,13 @@ void WebServerManager::handleReset() {
 
 void WebServerManager::handleClear() {
     _elapsedTimes.clear();
+    _lastTime = 0;
+    _bestTime = 0;
     if (_sdCard && _sdCard->isReady()) {
         File file = SD.open("/times.csv", FILE_WRITE);
         if (file) file.close(); // Truncate file to zero length
     }
     updateStats(0, 0, 0, 0);
-    _server.sendHeader("Location", "/", true);
-    _server.send(302, "text/plain", "Redirecting...");
+    _server.sendHeader("Location", "/");
+    _server.send(303);
 }
