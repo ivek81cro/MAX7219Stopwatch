@@ -1,4 +1,13 @@
-.pio
+# PlatformIO build system files
+.pio/
+
+# VS Code workspace settings (machine/user specific)
 .vscode/
+
+# Python cache files (if any scripts are used)
 *.pyc
 __pycache__/
+
+# OS generated files
+.DS_Store
+Thumbs.db
