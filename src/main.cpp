@@ -14,9 +14,9 @@
 
 
 LaserSensor laserSensor(LASER_SENSOR_PIN);
-StatusLed statusLed(27);
-// SD card pins: CS=13, MOSI=15, MISO=2, CLK=14
-SdCardManager sdCard(13, 15, 2, 14);
+StatusLed statusLed(12);
+// SD card pins: CS=4, MOSI=3 MISO=1, CLK=2
+SdCardManager sdCard(4, 3, 1, 2);
 WebServerManager webServer;
 unsigned long bestTime = 0;
 unsigned long totalTime = 0;

@@ -28,6 +28,15 @@ void WebServerManager::begin(SdCardManager* sdCard) {
             _server.send(404, "text/plain", "style.css not found");
         }
     });
+    _server.on("/api/times", HTTP_GET, [this]() {
+        String json = "[";
+        for (size_t i = 0; i < _elapsedTimes.size(); ++i) {
+            if (i > 0) json += ",";
+            json += "\"" + formatTime(_elapsedTimes[i]) + "\"";
+        }
+        json += "]";
+        _server.send(200, "application/json", json);
+    });
     _server.begin();
 }
 

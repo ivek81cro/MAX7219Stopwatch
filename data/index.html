@@ -3,23 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="5">
     <title>Stopwatch Stats</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <h1>Stopwatch Statistics</h1>
-    <p style='text-align:center;'>Last Time: %LAST%</p>
-    <p style='text-align:center;'>Best Time: %BEST%</p>
+    <p style='text-align:center;'>Last Time: <span id="last-time"></span></p>
+    <p style='text-align:center;'>Best Time: <span id="best-time"></span></p>
     <h2>All Elapsed Times</h2>
-    <table>
-        <tr><th>#</th><th>Time</th></tr>
-        %TABLE%
-    </table>
+    <table id="times-table"></table>
     <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
     <form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form>
     <form action='/clear' method='post' onsubmit='return confirm("Clear all times?");'>
         <button class='btn btn-clear'>Clear All Times</button>
     </form>
+    <script>
+function updateTable() {
+    fetch('/api/times')
+        .then(response => response.json())
+        .then(times => {
+            let table = document.getElementById('times-table');
+            table.innerHTML = "<tr><th>#</th><th>Time</th></tr>";
+            times.forEach((t, i) => {
+                table.innerHTML += `<tr><td>${i+1}</td><td>${t}</td></tr>`;
+            });
+        });
+}
+function updateStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(stats => {
+            document.getElementById('last-time').textContent = stats.last;
+            document.getElementById('best-time').textContent = stats.best;
+        });
+}
+setInterval(updateTable, 5000);
+setInterval(updateStats, 5000);
+window.onload = function() {
+    updateTable();
+    updateStats();
+};
+</script>
 </body>
 </html>
