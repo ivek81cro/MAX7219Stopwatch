@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <FS.h>
 #include <SPIFFS.h>
+#include <Preferences.h>
 
 WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
 
@@ -37,6 +38,34 @@ void WebServerManager::begin(SdCardManager* sdCard) {
         json += "]";
         _server.send(200, "application/json", json);
     });
+    
+    _server.on("/api/stats", HTTP_GET, [this]() {
+        // Calculate stats
+        unsigned long best = 0;
+        if (!_elapsedTimes.empty()) {
+            best = *std::min_element(_elapsedTimes.begin(), _elapsedTimes.end());
+        }
+        
+        String json = "{";
+        json += "\"last\":\"" + formatTime(_lastTime) + "\",";
+        json += "\"best\":\"" + formatTime(best) + "\",";
+        json += "\"count\":" + String(_elapsedTimes.size());
+        json += "}";
+        _server.send(200, "application/json", json);
+    });
+    
+    // Handle 404 for all other requests (favicon, etc)
+    _server.onNotFound([this]() {
+        String uri = _server.uri();
+        Serial.print("404 Not Found: ");
+        Serial.println(uri);
+        if (uri == "/favicon.ico") {
+            _server.send(204); // No content for favicon
+        } else {
+            _server.send(404, "text/plain", "Not Found");
+        }
+    });
+    
     _server.begin();
 }
 
@@ -52,19 +81,19 @@ void WebServerManager::handleWifiForm() {
 }
 
 void WebServerManager::handleWifiSave() {
-    if (!_sdCard) {
-        _server.send(500, "text/plain", "SD not available");
-        return;
-    }
     String ssid = _server.arg("ssid");
     String password = _server.arg("password");
-    if (_sdCard->saveWifiCredentials(ssid, password)) {
-        _server.send(200, "text/html", "<html><body>Saved! Rebooting...</body></html>");
-        delay(500);
-        ESP.restart();
-    } else {
-        _server.send(500, "text/html", "<html><body>Failed to save credentials.</body></html>");
-    }
+    
+    // Save to NVS (Preferences)
+    Preferences prefs;
+    prefs.begin("wifi", false);
+    prefs.putString("ssid", ssid);
+    prefs.putString("password", password);
+    prefs.end();
+    
+    _server.send(200, "text/html", "<html><body>WiFi credentials saved to NVS! Rebooting...</body></html>");
+    delay(500);
+    ESP.restart();
 }
 
 
@@ -74,7 +103,72 @@ void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTim
 }
 
 void WebServerManager::addElapsed(unsigned long elapsed) {
+    // Check for overflow protection
+    if (_elapsedTimes.size() >= MAX_TIMES) {
+        Serial.println("WARNING: Max times limit reached. Removing oldest entry.");
+        _elapsedTimes.erase(_elapsedTimes.begin()); // Remove oldest
+    }
     _elapsedTimes.push_back(elapsed);
+    saveTimes(); // Auto-save to SPIFFS
+}
+
+bool WebServerManager::saveTimes() {
+    File file = SPIFFS.open("/times.dat", "w");
+    if (!file) {
+        Serial.println("Failed to open times.dat for writing");
+        return false;
+    }
+    
+    // Write count first
+    size_t count = _elapsedTimes.size();
+    file.write((uint8_t*)&count, sizeof(count));
+    
+    // Write all times as binary
+    for (unsigned long time : _elapsedTimes) {
+        file.write((uint8_t*)&time, sizeof(time));
+    }
+    
+    file.close();
+    Serial.printf("Saved %d times to SPIFFS\n", count);
+    return true;
+}
+
+bool WebServerManager::loadTimes() {
+    if (!SPIFFS.exists("/times.dat")) {
+        Serial.println("No saved times found in SPIFFS");
+        return false;
+    }
+    
+    File file = SPIFFS.open("/times.dat", "r");
+    if (!file) {
+        Serial.println("Failed to open times.dat for reading");
+        return false;
+    }
+    
+    // Read count
+    size_t count = 0;
+    file.read((uint8_t*)&count, sizeof(count));
+    
+    // Overflow protection
+    if (count > MAX_TIMES) {
+        Serial.printf("WARNING: File contains %d times, limiting to %d\n", count, MAX_TIMES);
+        count = MAX_TIMES;
+    }
+    
+    // Read times
+    _elapsedTimes.clear();
+    _elapsedTimes.reserve(count);
+    
+    for (size_t i = 0; i < count && file.available(); i++) {
+        unsigned long time = 0;
+        if (file.read((uint8_t*)&time, sizeof(time)) == sizeof(time)) {
+            _elapsedTimes.push_back(time);
+        }
+    }
+    
+    file.close();
+    Serial.printf("Loaded %d times from SPIFFS\n", _elapsedTimes.size());
+    return true;
 }
 
 void WebServerManager::handleClient() {
@@ -96,8 +190,10 @@ void WebServerManager::handleRoot() {
     if (file) {
         html = file.readString();
         file.close();
+        Serial.println("Loaded index.html from SPIFFS");
     } else {
-        _server.send(500, "text/plain", "index.html not found");
+        Serial.println("ERROR: index.html not found in SPIFFS!");
+        _server.send(500, "text/html", "<html><body><h1>ERROR: SPIFFS index.html not found</h1><p>Run: platformio run --target uploadfs</p></body></html>");
         return;
     }
     // Generate table rows
@@ -134,10 +230,19 @@ void WebServerManager::handleClear() {
     _elapsedTimes.clear();
     _lastTime = 0;
     _bestTime = 0;
+    
+    // Delete SPIFFS times file
+    if (SPIFFS.exists("/times.dat")) {
+        SPIFFS.remove("/times.dat");
+        Serial.println("Cleared times from SPIFFS");
+    }
+    
+    // Also clear SD if available
     if (_sdCard && _sdCard->isReady()) {
         File file = SD.open("/times.csv", FILE_WRITE);
         if (file) file.close(); // Truncate file to zero length
     }
+    
     updateStats(0, 0, 0, 0);
     _server.sendHeader("Location", "/");
     _server.send(303);

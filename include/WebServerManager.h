@@ -16,7 +16,10 @@ public:
     void updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count);
     void addElapsed(unsigned long elapsed);
     void handleClient();
+    bool saveTimes();
+    bool loadTimes();
 private:
+    static const size_t MAX_TIMES = 10000; // Max 10000 times (~40KB in SPIFFS)
     WebServer _server;
     unsigned long _lastTime;
     unsigned long _bestTime;

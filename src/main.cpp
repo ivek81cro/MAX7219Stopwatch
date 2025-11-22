@@ -9,8 +9,7 @@
 #include "SdCardManager.h"
 #include <FS.h>
 #include <SPIFFS.h>
-
-
+#include <Preferences.h>
 
 
 LaserSensor laserSensor(LASER_SENSOR_PIN);
@@ -18,22 +17,31 @@ StatusLed statusLed(12);
 // SD card pins: CS=4, MOSI=3 MISO=1, CLK=2
 SdCardManager sdCard(4, 3, 1, 2);
 WebServerManager webServer;
+Preferences preferences;
 unsigned long bestTime = 0;
 unsigned long totalTime = 0;
 int finishedCount = 0;
 
 void setup() {
     Serial.begin(115200);
-    bool sdOk = sdCard.begin();
-    Serial.println(sdOk ? "SD card initialized." : "SD card initialization failed!");
+    delay(2000); // Wait for serial monitor to connect
+    Serial.println("\n\n=== STOPWATCH STARTING ===");
+    
+    Serial.println("Initializing peripherals...");
     laserSensor.begin();
     StopwatchDisplay::getInstance(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES, TOTAL_COLUMNS).begin();
     StopwatchDisplay::getInstance().setIntensity(8); // Set medium brightness
     StopwatchDisplay::getInstance().clear();
     statusLed.begin();
+    Serial.println("Peripherals initialized.");
 
-    String ssid, password;
-    bool credsOk = sdOk && sdCard.loadWifiCredentials(ssid, password);
+    // Load WiFi credentials from NVS (non-volatile storage)
+    preferences.begin("wifi", false);
+    String ssid = preferences.getString("ssid", "");
+    String password = preferences.getString("password", "");
+    preferences.end();
+    
+    bool credsOk = (ssid.length() > 0);
     if (credsOk) {
         Serial.print("Connecting to WiFi SSID: ");
         Serial.println(ssid);
@@ -62,35 +70,37 @@ void setup() {
         Serial.println(WiFi.softAPIP());
     }
 
-    webServer.begin(&sdCard);
-
-    // Load times from SD card if available
-    if (sdOk) {
-        File file = SD.open("/times.csv", FILE_READ);
-        if (file) {
-            while (file.available()) {
-                String line = file.readStringUntil('\n');
-                line.trim();
-                if (line.length() > 0) {
-                    // Parse mm:ss:ms
-                    int firstColon = line.indexOf(':');
-                    int secondColon = line.lastIndexOf(':');
-                    if (firstColon > 0 && secondColon > firstColon) {
-                        unsigned int minutes = line.substring(0, firstColon).toInt();
-                        unsigned int seconds = line.substring(firstColon + 1, secondColon).toInt();
-                        unsigned int milliseconds = line.substring(secondColon + 1).toInt();
-                        unsigned long ms = minutes * 60000UL + seconds * 1000UL + milliseconds;
-                        webServer.addElapsed(ms);
-                    }
-                }
-            }
-            file.close();
-        }
-    }
-
+    Serial.println("Mounting SPIFFS...");
     if (!SPIFFS.begin(true)) {
         Serial.println("SPIFFS Mount Failed");
+    } else {
+        Serial.println("SPIFFS mounted successfully.");
     }
+
+    Serial.println("Starting web server...");
+    webServer.begin(&sdCard);
+    Serial.println("Web server started.");
+    
+    // Load saved times from SPIFFS
+    Serial.println("\nLoading saved times from SPIFFS...");
+    if (webServer.loadTimes()) {
+        Serial.println("Times loaded successfully.");
+    } else {
+        Serial.println("No previous times found or load failed.");
+    }
+    
+    // Check SPIFFS space
+    size_t totalBytes = SPIFFS.totalBytes();
+    size_t usedBytes = SPIFFS.usedBytes();
+    Serial.printf("SPIFFS: %d KB used / %d KB total (%.1f%% full)\n", 
+                  usedBytes/1024, totalBytes/1024, 
+                  (usedBytes * 100.0) / totalBytes);
+
+    // SD card disabled due to pin conflicts (optional, for future use)
+    Serial.println("\nSD Card: DISABLED (pins 1,3 conflict with Serial)");
+    Serial.println("Times are saved to SPIFFS internal storage instead.");
+    
+    Serial.println("\n=== SETUP COMPLETE ===\n");
 }
 
 
@@ -136,14 +146,18 @@ void loop() {
             Stopwatch::getInstance().stop();
             Stopwatch::getInstance().printResult(Serial);
             unsigned long lastTime = Stopwatch::getInstance().elapsed();
+            
+            // Save to SPIFFS (auto-saves in addElapsed)
             webServer.addElapsed(lastTime);
+            Serial.println("Time saved to SPIFFS.");
+            
+            // Optionally log to SD card if available
             if (sdCard.isReady()) {
                 if (sdCard.logTime(lastTime)) {
-                    Serial.println("Time logged to SD card.");
-                } else {
-                    Serial.println("Failed to log time to SD card.");
+                    Serial.println("Also logged to SD card.");
                 }
             }
+            
             if (bestTime == 0 || lastTime < bestTime) bestTime = lastTime;
             totalTime += lastTime;
             finishedCount++;

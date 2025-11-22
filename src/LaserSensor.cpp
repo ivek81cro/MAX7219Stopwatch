@@ -7,5 +7,5 @@ void LaserSensor::begin() const {
 }
 
 bool LaserSensor::isActive() const {
-    return digitalRead(_pin) == LOW;
+    return digitalRead(_pin) == HIGH;
 }
