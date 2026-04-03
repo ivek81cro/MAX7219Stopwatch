@@ -166,8 +166,9 @@ void loop() {
             webServer.updateStats(lastTime, bestTime, avgTime, finishedCount);
         } else if (transitionCount == 3 && Stopwatch::getInstance().isStopped()) {
             Stopwatch::getInstance().reset();
-            transitionCount = 0;
-            Serial.println("Stopwatch reset and ready for new start.");
+            Stopwatch::getInstance().start();
+            transitionCount = 1;
+            Serial.println("Stopwatch reset and new run started.");
         }
     }
     lastLaserState = active;
