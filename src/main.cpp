@@ -121,9 +121,10 @@ void loop() {
         char buffer[20];
         unsigned long e = Stopwatch::getInstance().elapsed();
         unsigned int minutes = e / 60000;
+        unsigned int minuteDigit = minutes % 10;
         unsigned int seconds = (e % 60000) / 1000;
-        unsigned int centiseconds = (e % 1000) / 10; // two decimals
-        sprintf(buffer, "%02u:%02u:%02u", minutes, seconds, centiseconds);
+        unsigned int milliseconds = e % 1000;
+        sprintf(buffer, "%1u:%02u:%03u", minuteDigit, seconds, milliseconds);
         if (strcmp(buffer, lastBuffer) != 0) {
             StopwatchDisplay::getInstance().showTime(buffer);
             strcpy(lastBuffer, buffer);
@@ -175,9 +176,10 @@ void loop() {
     char buffer[20];
     unsigned long e = Stopwatch::getInstance().elapsed();
     unsigned int minutes = e / 60000;
+    unsigned int minuteDigit = minutes % 10;
     unsigned int seconds = (e % 60000) / 1000;
-    unsigned int centiseconds = (e % 1000) / 10; // two decimals
-    sprintf(buffer, "%02u:%02u:%02u", minutes, seconds, centiseconds);
+    unsigned int milliseconds = e % 1000;
+    sprintf(buffer, "%1u:%02u:%03u", minuteDigit, seconds, milliseconds);
     if (strcmp(buffer, lastBuffer) != 0) {
         StopwatchDisplay::getInstance().showTime(buffer);
         strcpy(lastBuffer, buffer);

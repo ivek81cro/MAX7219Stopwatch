@@ -34,23 +34,33 @@ void StopwatchDisplay::clear() {
 
 void StopwatchDisplay::showTime(const char* timeStr) {
     _mx.clear();
-    // Mirror the string for display
-    uint8_t len = strlen(timeStr);
-    char mirrored[20];
-    for (uint8_t i = 0; i < len; i++) {
-        mirrored[i] = timeStr[len - 1 - i];
+
+    if (timeStr == nullptr) {
+        return;
     }
-    mirrored[len] = '\0';
+
+    uint8_t len = strlen(timeStr);
+    if (len == 0) {
+        return;
+    }
+
+    // Format m:ss:mmm is 8 chars; if a longer string is provided,
+    // render only the right-most 8 chars so the display stays aligned.
+    const char* renderStr = timeStr;
+    if (len > 8) {
+        renderStr = timeStr + (len - 8);
+        len = 8;
+    }
+
     int col = _totalColumns - 1;
     for (int i = len - 1; i >= 0; i--) {
-        if (mirrored[i] == ':') {
-            // Draw colon as two dots, 2px apart vertically
-            // Example: dots at row 2 and row 5 (bit 2 and bit 5)
+        if (renderStr[i] == ':') {
+            // Compact separator column (rows 2 and 5).
             _mx.setColumn(col, 0x24); // 0b00100100, dots at rows 2 and 5
-            col -= 2; // 1px for colon, 1px space
+            col -= 1; // no extra spacing to fit m:ss:mmm in 32 columns
         } else {
-            _mx.setChar(col, mirrored[i]);
-            col -= 6; // 5px char + 1px space
+            _mx.setChar(col, renderStr[i]);
+            col -= 5; // 5px glyph width, no inter-character spacing
         }
         if (col < 0) break;
     }
