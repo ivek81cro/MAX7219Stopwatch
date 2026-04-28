@@ -12,7 +12,7 @@ public:
         uint8_t dataPin = 23,
         uint8_t clkPin = 18,
         uint8_t csPin = 5,
-        uint8_t maxDevices = 4,
+        uint8_t maxDevices = 5,
         uint8_t totalColumns = 32);
     void begin();
     void showTime(const char* timeStr);

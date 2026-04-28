@@ -53,23 +53,24 @@ void StopwatchDisplay::showTime(const char* timeStr) {
         return;
     }
 
-    // Format m:ss:mmm is 8 chars; if a longer string is provided,
-    // render only the right-most 8 chars so the display stays aligned.
+    // Format m:ss:mmm is 7 chars; if a longer string is provided,
+    // render only the right-most 7 chars so the display stays aligned.
     const char* renderStr = timeStr;
-    if (len > 8) {
-        renderStr = timeStr + (len - 8);
-        len = 8;
+    if (len > 9) {
+        renderStr = timeStr + (len - 9);
+        len = 9;
     }
 
-    int col = _totalColumns - 1;
-    for (int i = len - 1; i >= 0; i--) {
+    int col = _totalColumns - 1; // Start from position that keeps everything visible
+    for (int i = 0; i < len; i++) {
         if (renderStr[i] == ':') {
             // Compact separator column (rows 2 and 5).
+            col -= 0; // spacing before colon
             _mx.setColumn(col, 0x24); // 0b00100100, dots at rows 2 and 5
-            col -= 1; // no extra spacing to fit m:ss:mmm in 32 columns
+            col -= 2; // spacing after colon
         } else {
             _mx.setChar(col, renderStr[i]);
-            col -= 5; // 5px glyph width, no inter-character spacing
+            col -= 6; // 5px glyph width + 1px spacing
         }
         if (col < 0) break;
     }
