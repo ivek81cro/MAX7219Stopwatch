@@ -40,38 +40,35 @@ void StopwatchDisplay::showTime(const char* timeStr) {
     _mx.update(MD_MAX72XX::OFF);
     _mx.clear();
 
-    if (timeStr == nullptr) {
-        return;
-    }
+    if (timeStr != nullptr) {
+        uint8_t len = strlen(timeStr);
 
-    uint8_t len = strlen(timeStr);
-    if (len == 0) {
-        return;
-    }
-
-    // Format m:ss:mmm is 7 chars; if a longer string is provided,
-    // render only the right-most 7 chars so the display stays aligned.
-    const char* renderStr = timeStr;
-    if (len > 9) {
-        renderStr = timeStr + (len - 9);
-        len = 9;
-    }
-
-    int col = _totalColumns - 1;
-    for (int i = 0; i < len; i++) {
-        if (renderStr[i] == ':') {
-            _mx.setColumn(col, 0x24); // 0b00100100, dots at rows 2 and 5
-            col -= 2;
-        } else {
-            _mx.setChar(col, renderStr[i]);
-            col -= 6;
+        // Format m:ss:mmm is 9 chars; if a longer string is provided,
+        // render only the right-most 9 chars so the display stays aligned.
+        const char* renderStr = timeStr;
+        if (len > 9) {
+            renderStr = timeStr + (len - 9);
+            len = 9;
         }
-        if (col < 0) break;
-    }
 
-    if (_flipUpsideDown) {
-        _mx.transform(MD_MAX72XX::TFLR);
-        _mx.transform(MD_MAX72XX::TFUD);
+        if (len > 0) {
+            int col = _totalColumns - 1;
+            for (int i = 0; i < len; i++) {
+                if (renderStr[i] == ':') {
+                    _mx.setColumn(col, 0x24); // 0b00100100, dots at rows 2 and 5
+                    col -= 2;
+                } else {
+                    _mx.setChar(col, renderStr[i]);
+                    col -= 6;
+                }
+                if (col < 0) break;
+            }
+
+            if (_flipUpsideDown) {
+                _mx.transform(MD_MAX72XX::TFLR);
+                _mx.transform(MD_MAX72XX::TFUD);
+            }
+        }
     }
 
     _mx.update();

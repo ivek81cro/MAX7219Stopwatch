@@ -110,6 +110,34 @@ int transitionCount = 0;
 bool lastLaserState = true; // assume starts ACTIVE
 unsigned long ignoreUntil = 0;
 
+static void updateDisplayFromElapsed(unsigned long elapsedMs) {
+    static char lastBuffer[20] = "";
+    char buffer[20];
+
+    unsigned int minutes = elapsedMs / 60000;
+    unsigned int minuteDigit = minutes % 10;
+    unsigned int seconds = (elapsedMs % 60000) / 1000;
+    unsigned int milliseconds = elapsedMs % 1000;
+    snprintf(buffer, sizeof(buffer), "%1u:%02u:%03u", minuteDigit, seconds, milliseconds);
+
+    if (strcmp(buffer, lastBuffer) != 0) {
+        StopwatchDisplay::getInstance().showTime(buffer);
+        strcpy(lastBuffer, buffer);
+    }
+}
+
+static void printElapsedThrottled(unsigned long now) {
+    static unsigned long lastPrintMs = 0;
+    if (!Stopwatch::getInstance().isRunning()) {
+        return;
+    }
+
+    if (now - lastPrintMs >= 250) {
+        Stopwatch::getInstance().printElapsed(Serial);
+        lastPrintMs = now;
+    }
+}
+
 void loop() {
     bool active = laserSensor.isActive();
     statusLed.set(active);
@@ -117,21 +145,9 @@ void loop() {
     unsigned long now = millis();
     if (now < ignoreUntil) {
         lastLaserState = active;
-        static char lastBuffer[20] = "";
-        char buffer[20];
-        unsigned long e = Stopwatch::getInstance().elapsed();
-        unsigned int minutes = e / 60000;
-        unsigned int minuteDigit = minutes % 10;
-        unsigned int seconds = (e % 60000) / 1000;
-        unsigned int milliseconds = e % 1000;
-        sprintf(buffer, "%1u:%02u:%03u", minuteDigit, seconds, milliseconds);
-        if (strcmp(buffer, lastBuffer) != 0) {
-            StopwatchDisplay::getInstance().showTime(buffer);
-            strcpy(lastBuffer, buffer);
-        }
-        if (Stopwatch::getInstance().isRunning()) {
-            Stopwatch::getInstance().printElapsed(Serial);
-        }
+        updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
+        printElapsedThrottled(now);
+        webServer.handleClient();
         delay(50);
         return;
     }
@@ -173,22 +189,8 @@ void loop() {
     }
     lastLaserState = active;
 
-    static char lastBuffer[20] = "";
-    char buffer[20];
-    unsigned long e = Stopwatch::getInstance().elapsed();
-    unsigned int minutes = e / 60000;
-    unsigned int minuteDigit = minutes % 10;
-    unsigned int seconds = (e % 60000) / 1000;
-    unsigned int milliseconds = e % 1000;
-    sprintf(buffer, "%1u:%02u:%03u", minuteDigit, seconds, milliseconds);
-    if (strcmp(buffer, lastBuffer) != 0) {
-        StopwatchDisplay::getInstance().showTime(buffer);
-        strcpy(lastBuffer, buffer);
-    }
-
-    if (Stopwatch::getInstance().isRunning()) {
-        Stopwatch::getInstance().printElapsed(Serial);
-    }
+    updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
+    printElapsedThrottled(now);
 
     webServer.handleClient();
     delay(50);

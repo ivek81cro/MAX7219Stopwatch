@@ -1,11 +1,42 @@
 
-This directory is intended for PlatformIO Test Runner and project tests.
+MAX7219 Stopwatch - Test Documentation
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+This directory contains project tests and helper scenarios for validating
+stability, time accuracy, and peripherals.
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+Current Tests
+
+- test_sdcard.cpp
+	- Initializes SD card through SdCardManager
+	- Writes a sample time into times.csv
+	- Reads the file and prints content to serial
+
+How To Run Tests
+
+1. Connect ESP32 and verify the correct COM port.
+2. Run the PlatformIO test command:
+	 pio test -e esp32doit-devkit-v1
+
+Note: test_sdcard.cpp is currently a hardware integration test
+(depends on real SD card and pins), not an isolated unit test.
+
+Recommended Next Tests
+
+- Stopwatch logic
+	- start/stop/reset state transitions
+	- elapsed time accuracy within tolerance
+
+- Display format
+	- validation of m:ss:mmm format
+	- render length and clipping for longer strings
+	- flip on/off behavior without artifacts
+
+- WebServer and result persistence
+	- addElapsed/loadTimes/saveTimes consistency
+	- edge cases (empty times.dat, corrupted record, MAX_TIMES limit)
+
+Guidelines For Stable Tests
+
+- Avoid delay in tests when possible.
+- Use deterministic inputs and verify exact outputs.
+- For hardware tests, clearly separate pin setup and expected behavior.
