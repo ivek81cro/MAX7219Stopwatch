@@ -18,6 +18,7 @@ public:
     void showTime(const char* timeStr);
     void setIntensity(uint8_t intensity);
     void clear();
+    void setFlipUpsideDown(bool flip);
 private:
     StopwatchDisplay(MD_MAX72XX::moduleType_t hardwareType, uint8_t dataPin, uint8_t clkPin, uint8_t csPin, uint8_t maxDevices, uint8_t totalColumns);
     StopwatchDisplay(const StopwatchDisplay&) = delete;
@@ -25,6 +26,7 @@ private:
     static StopwatchDisplay* _instance;
     MD_MAX72XX _mx;
     uint8_t _totalColumns;
+    bool _flipUpsideDown = false;
 };
 
 #endif // STOPWATCHDISPLAY_H

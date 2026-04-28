@@ -32,6 +32,15 @@ void StopwatchDisplay::clear() {
     _mx.clear();
 }
 
+void StopwatchDisplay::setFlipUpsideDown(bool flip) {
+    _flipUpsideDown = flip;
+    if (flip) {
+        _mx.transform(MD_MAX72XX::TRC); // Rotate 180 degrees (TRC = Rotate Clockwise)
+    } else {
+        _mx.clear();  // Reset by clearing
+    }
+}
+
 void StopwatchDisplay::showTime(const char* timeStr) {
     _mx.clear();
 
@@ -63,5 +72,10 @@ void StopwatchDisplay::showTime(const char* timeStr) {
             col -= 5; // 5px glyph width, no inter-character spacing
         }
         if (col < 0) break;
+    }
+
+    // Apply flip transformation if enabled
+    if (_flipUpsideDown) {
+        _mx.transform(MD_MAX72XX::TRC); // Rotate 180 degrees
     }
 }
