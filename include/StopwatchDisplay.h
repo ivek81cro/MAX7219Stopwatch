@@ -26,7 +26,7 @@ private:
     static StopwatchDisplay* _instance;
     MD_MAX72XX _mx;
     uint8_t _totalColumns;
-    bool _flipUpsideDown = false;
+    bool _flipUpsideDown = true;
 };
 
 #endif // STOPWATCHDISPLAY_H

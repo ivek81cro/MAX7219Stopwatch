@@ -34,14 +34,10 @@ void StopwatchDisplay::clear() {
 
 void StopwatchDisplay::setFlipUpsideDown(bool flip) {
     _flipUpsideDown = flip;
-    if (flip) {
-        _mx.transform(MD_MAX72XX::TRC); // Rotate 180 degrees (TRC = Rotate Clockwise)
-    } else {
-        _mx.clear();  // Reset by clearing
-    }
 }
 
 void StopwatchDisplay::showTime(const char* timeStr) {
+    _mx.update(MD_MAX72XX::OFF);
     _mx.clear();
 
     if (timeStr == nullptr) {
@@ -61,22 +57,23 @@ void StopwatchDisplay::showTime(const char* timeStr) {
         len = 9;
     }
 
-    int col = _totalColumns - 1; // Start from position that keeps everything visible
+    int col = _totalColumns - 1;
     for (int i = 0; i < len; i++) {
         if (renderStr[i] == ':') {
-            // Compact separator column (rows 2 and 5).
-            col -= 0; // spacing before colon
             _mx.setColumn(col, 0x24); // 0b00100100, dots at rows 2 and 5
-            col -= 2; // spacing after colon
+            col -= 2;
         } else {
             _mx.setChar(col, renderStr[i]);
-            col -= 6; // 5px glyph width + 1px spacing
+            col -= 6;
         }
         if (col < 0) break;
     }
 
-    // Apply flip transformation if enabled
     if (_flipUpsideDown) {
-        _mx.transform(MD_MAX72XX::TRC); // Rotate 180 degrees
+        _mx.transform(MD_MAX72XX::TFLR);
+        _mx.transform(MD_MAX72XX::TFUD);
     }
+
+    _mx.update();
+    _mx.update(MD_MAX72XX::ON);
 }
