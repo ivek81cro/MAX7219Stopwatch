@@ -1,5 +1,4 @@
 #include "WebServerManager.h"
-#include "SdCardManager.h"
 #include "StopwatchDisplay.h"
 #include "Stopwatch.h"
 #include <vector>
@@ -11,8 +10,7 @@
 WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
 
 
-void WebServerManager::begin(SdCardManager* sdCard) {
-    _sdCard = sdCard;
+void WebServerManager::begin() {
     _server.on("/", std::bind(&WebServerManager::handleRoot, this));
     _server.on("/index.html", std::bind(&WebServerManager::handleRoot, this));
     _server.on("/wifi", std::bind(&WebServerManager::handleWifiForm, this));
@@ -235,12 +233,6 @@ void WebServerManager::handleClear() {
     if (SPIFFS.exists("/times.dat")) {
         SPIFFS.remove("/times.dat");
         Serial.println("Cleared times from SPIFFS");
-    }
-    
-    // Also clear SD if available
-    if (_sdCard && _sdCard->isReady()) {
-        File file = SD.open("/times.csv", FILE_WRITE);
-        if (file) file.close(); // Truncate file to zero length
     }
     
     updateStats(0, 0, 0, 0);

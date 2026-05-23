@@ -6,10 +6,7 @@ stability, time accuracy, and peripherals.
 
 Current Tests
 
-- test_sdcard.cpp
-	- Initializes SD card through SdCardManager
-	- Writes a sample time into times.csv
-	- Reads the file and prints content to serial
+- No active automated tests are currently included.
 
 How To Run Tests
 
@@ -17,8 +14,7 @@ How To Run Tests
 2. Run the PlatformIO test command:
 	 pio test -e esp32doit-devkit-v1
 
-Note: test_sdcard.cpp is currently a hardware integration test
-(depends on real SD card and pins), not an isolated unit test.
+Note: SD card hardware tests were removed because the SD reader is no longer present on the PCB.
 
 Recommended Next Tests
 

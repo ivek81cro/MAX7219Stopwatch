@@ -6,7 +6,6 @@
 #include "WebServerManager.h"
 #include <WiFi.h>
 #include "StatusLed.h"
-#include "SdCardManager.h"
 #include <FS.h>
 #include <SPIFFS.h>
 #include <Preferences.h>
@@ -14,8 +13,6 @@
 
 LaserSensor laserSensor(LASER_SENSOR_PIN);
 StatusLed statusLed(12);
-// SD card pins: CS=4, MOSI=3 MISO=1, CLK=2
-SdCardManager sdCard(4, 3, 1, 2);
 WebServerManager webServer;
 Preferences preferences;
 unsigned long bestTime = 0;
@@ -78,7 +75,7 @@ void setup() {
     }
 
     Serial.println("Starting web server...");
-    webServer.begin(&sdCard);
+    webServer.begin();
     Serial.println("Web server started.");
     
     // Load saved times from SPIFFS
@@ -96,10 +93,6 @@ void setup() {
                   usedBytes/1024, totalBytes/1024, 
                   (usedBytes * 100.0) / totalBytes);
 
-    // SD card disabled due to pin conflicts (optional, for future use)
-    Serial.println("\nSD Card: DISABLED (pins 1,3 conflict with Serial)");
-    Serial.println("Times are saved to SPIFFS internal storage instead.");
-    
     Serial.println("\n=== SETUP COMPLETE ===\n");
 }
 
@@ -167,13 +160,6 @@ void loop() {
             // Save to SPIFFS (auto-saves in addElapsed)
             webServer.addElapsed(lastTime);
             Serial.println("Time saved to SPIFFS.");
-            
-            // Optionally log to SD card if available
-            if (sdCard.isReady()) {
-                if (sdCard.logTime(lastTime)) {
-                    Serial.println("Also logged to SD card.");
-                }
-            }
             
             if (bestTime == 0 || lastTime < bestTime) bestTime = lastTime;
             totalTime += lastTime;

@@ -1,18 +1,16 @@
 
-#ifndef WEBSERVERMANAGER_H
-#define WEBSERVERMANAGER_H
+#ifndef MAX7219STOPWATCH_WEBSERVERMANAGER_H
+#define MAX7219STOPWATCH_WEBSERVERMANAGER_H
 
 #include <WebServer.h>
 #include <Arduino.h>
 #include <vector>
 #include <algorithm>
 
-class SdCardManager; // Forward declaration
-
 class WebServerManager {
 public:
     WebServerManager(uint16_t port = 80);
-    void begin(SdCardManager* sdCard = nullptr);
+    void begin();
     void updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count);
     void addElapsed(unsigned long elapsed);
     void handleClient();
@@ -26,7 +24,6 @@ private:
     unsigned long _avgTime;
     int _count;
     std::vector<unsigned long> _elapsedTimes;
-    SdCardManager* _sdCard = nullptr;
     void handleRoot();
     void handleWifiForm();
     void handleWifiSave();
@@ -35,4 +32,4 @@ private:
     String formatTime(unsigned long ms) const;
 };
 
-#endif // WEBSERVERMANAGER_H
+#endif // MAX7219STOPWATCH_WEBSERVERMANAGER_H

@@ -9,7 +9,6 @@ This project is a stopwatch for measuring passes using a laser sensor, with outp
 - Upside-down display flip support (currently enabled by default)
 - Web interface for result and statistic overview
 - Result storage in SPIFFS (times.dat)
-- Optional SD card logging
 - WiFi STA mode with fallback AP mode
 
 ## Project Structure
@@ -22,8 +21,6 @@ This project is a stopwatch for measuring passes using a laser sensor, with outp
   - Time rendering on MAX7219, including flip
 - src/WebServerManager.cpp
   - HTTP routes, API, and time save/load logic
-- src/SdCardManager.cpp
-  - SD initialization and time logging
 - data/
   - Web files (index.html, style.css, wifi.html)
 - test/
