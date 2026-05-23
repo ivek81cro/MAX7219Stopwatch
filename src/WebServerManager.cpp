@@ -13,6 +13,27 @@ WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0),
 void WebServerManager::begin() {
     _server.on("/", std::bind(&WebServerManager::handleRoot, this));
     _server.on("/index.html", std::bind(&WebServerManager::handleRoot, this));
+    // Common captive-portal probes (phones/laptops) should land on app root.
+    _server.on("/generate_204", HTTP_GET, [this]() {
+        _server.sendHeader("Location", "/", true);
+        _server.send(302, "text/plain", "Redirecting...");
+    });
+    _server.on("/hotspot-detect.html", HTTP_GET, [this]() {
+        _server.sendHeader("Location", "/", true);
+        _server.send(302, "text/plain", "Redirecting...");
+    });
+    _server.on("/ncsi.txt", HTTP_GET, [this]() {
+        _server.sendHeader("Location", "/", true);
+        _server.send(302, "text/plain", "Redirecting...");
+    });
+    _server.on("/connecttest.txt", HTTP_GET, [this]() {
+        _server.sendHeader("Location", "/", true);
+        _server.send(302, "text/plain", "Redirecting...");
+    });
+    _server.on("/fwlink", HTTP_GET, [this]() {
+        _server.sendHeader("Location", "/", true);
+        _server.send(302, "text/plain", "Redirecting...");
+    });
     _server.on("/wifi", std::bind(&WebServerManager::handleWifiForm, this));
     _server.on("/savewifi", HTTP_POST, std::bind(&WebServerManager::handleWifiSave, this));
     _server.on("/clear", HTTP_POST, std::bind(&WebServerManager::handleClear, this));
@@ -22,9 +43,13 @@ void WebServerManager::begin() {
         if (file) {
             String css = file.readString();
             file.close();
-            _server.send(200, "text/css", css);
+            if (css.length() > 0) {
+                _server.send(200, "text/css", css);
+            } else {
+                _server.send(200, "text/css", "body{font-family:Arial,sans-serif;margin:20px;background:#f4f4f4;color:#333}h1,h2{text-align:center}table{width:100%;max-width:600px;margin:20px auto;border-collapse:collapse;background:#fff}th,td{padding:12px;border:1px solid #ddd;text-align:center}.btn{display:block;width:200px;margin:10px auto;padding:10px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer}.btn-reset{background:#28a745}.btn-clear{background:#dc3545}");
+            }
         } else {
-            _server.send(404, "text/plain", "style.css not found");
+            _server.send(200, "text/css", "body{font-family:Arial,sans-serif;margin:20px;background:#f4f4f4;color:#333}h1,h2{text-align:center}table{width:100%;max-width:600px;margin:20px auto;border-collapse:collapse;background:#fff}th,td{padding:12px;border:1px solid #ddd;text-align:center}.btn{display:block;width:200px;margin:10px auto;padding:10px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer}.btn-reset{background:#28a745}.btn-clear{background:#dc3545}");
         }
     });
     _server.on("/api/times", HTTP_GET, [this]() {
@@ -190,9 +215,11 @@ void WebServerManager::handleRoot() {
         file.close();
         Serial.println("Loaded index.html from SPIFFS");
     } else {
-        Serial.println("ERROR: index.html not found in SPIFFS!");
-        _server.send(500, "text/html", "<html><body><h1>ERROR: SPIFFS index.html not found</h1><p>Run: platformio run --target uploadfs</p></body></html>");
-        return;
+        Serial.println("ERROR: index.html not found in SPIFFS, using fallback page");
+    }
+
+    if (html.length() == 0) {
+        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>Stopwatch Stats</title><link rel='stylesheet' href='/style.css'></head><body><h1>Stopwatch Statistics</h1><p style='text-align:center;'>Last Time: <span id='last-time'>00:00:000</span></p><p style='text-align:center;'>Best Time: <span id='best-time'>00:00:000</span></p><h2>All Elapsed Times</h2><table id='times-table'><tr><th>#</th><th>Time</th></tr></table><form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form><form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form><form action='/clear' method='post' onsubmit='return confirm(\"Clear all times?\");'><button class='btn btn-clear'>Clear All Times</button></form><script>function updateTable(){fetch('/api/times').then(r=>r.json()).then(times=>{let t=document.getElementById('times-table');t.innerHTML='<tr><th>#</th><th>Time</th></tr>';times.forEach((v,i)=>{t.innerHTML+=`<tr><td>${i+1}</td><td>${v}</td></tr>`;});});}function updateStats(){fetch('/api/stats').then(r=>r.json()).then(s=>{document.getElementById('last-time').textContent=s.last;document.getElementById('best-time').textContent=s.best;});}window.onload=function(){updateTable();updateStats();setInterval(updateTable,5000);setInterval(updateStats,5000);};</script></body></html>";
     }
     // Generate table rows
     String tableRows;
