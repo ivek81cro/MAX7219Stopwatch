@@ -1,5 +1,5 @@
-#ifndef STOPWATCHDISPLAY_H
-#define STOPWATCHDISPLAY_H
+#ifndef MAX7219STOPWATCH_STOPWATCHDISPLAY_H
+#define MAX7219STOPWATCH_STOPWATCHDISPLAY_H
 
 #include <MD_MAX72XX.h>
 #include <Arduino.h>
@@ -29,4 +29,4 @@ private:
     bool _flipUpsideDown = true;
 };
 
-#endif // STOPWATCHDISPLAY_H
+#endif // MAX7219STOPWATCH_STOPWATCHDISPLAY_H
