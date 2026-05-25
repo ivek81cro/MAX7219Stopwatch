@@ -6,6 +6,9 @@
 #include "WebServerManager.h"
 #include <WiFi.h>
 #include "StatusLed.h"
+#if ENABLE_SERIAL_TRIGGER_TEST
+#include "SerialTriggerTest.h"
+#endif
 #include <FS.h>
 #include <SPIFFS.h>
 #include <Preferences.h>
@@ -94,6 +97,9 @@ void setup() {
                   (usedBytes * 100.0) / totalBytes);
 
     Serial.println("\n=== SETUP COMPLETE ===\n");
+#if ENABLE_SERIAL_TRIGGER_TEST
+    SerialTriggerTest::begin();
+#endif
 }
 
 
@@ -132,10 +138,23 @@ static void printElapsedThrottled(unsigned long now) {
 }
 
 void loop() {
+#if ENABLE_SERIAL_TRIGGER_TEST
+    SerialTriggerTest::handleInput();
+#endif
+
     bool active = laserSensor.isActive();
+#if ENABLE_SERIAL_TRIGGER_TEST
+    unsigned long now = millis();
+    if (SerialTriggerTest::consumeTriggerIfReady(now, ignoreUntil)) {
+        // Force one loop pass to look like beam interruption.
+        active = false;
+    }
+#else
+    unsigned long now = millis();
+#endif
+
     statusLed.set(active);
     // Ignore sensor for 3 seconds after each break
-    unsigned long now = millis();
     if (now < ignoreUntil) {
         lastLaserState = active;
         updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
