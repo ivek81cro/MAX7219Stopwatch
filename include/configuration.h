@@ -15,6 +15,6 @@
 #define LASER_SENSOR_PIN 13
 
 // Development test mode: set to 0 to disable serial trigger simulation.
-#define ENABLE_SERIAL_TRIGGER_TEST 1
+#define ENABLE_SERIAL_TRIGGER_TEST 0
 
 #endif // CONFIGURATION_H

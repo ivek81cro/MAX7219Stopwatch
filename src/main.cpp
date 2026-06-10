@@ -142,6 +142,15 @@ void loop() {
     SerialTriggerTest::handleInput();
 #endif
 
+    if (!webServer.isTriggerArmed()) {
+        lastLaserState = laserSensor.isActive();
+        statusLed.set(false);
+        updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
+        webServer.handleClient();
+        delay(50);
+        return;
+    }
+
     bool active = laserSensor.isActive();
 #if ENABLE_SERIAL_TRIGGER_TEST
     unsigned long now = millis();

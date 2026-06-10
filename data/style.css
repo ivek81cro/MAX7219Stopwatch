@@ -5,6 +5,12 @@ th, td { padding: 12px; border: 1px solid #ddd; text-align: center; }
 th { background-color: #f0f0f0; }
 .btn { display: block; width: 200px; margin: 10px auto; padding: 10px; text-align: center; background-color: #007bff; color: white; border: none; border-radius: 4px; text-decoration: none; font-size: 16px; cursor: pointer; }
 .btn:hover { opacity: 0.9; }
+.trigger-panel { max-width: 600px; margin: 20px auto; padding: 18px; text-align: center; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.trigger-label { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+.trigger-state { margin: 0 0 14px; font-size: 24px; font-weight: bold; }
+.trigger-state-armed { color: #1f8b4c; }
+.trigger-state-disarmed { color: #c0392b; }
+.btn-trigger { background-color: #444; }
 .btn-reset { background-color: #28a745; }
 .btn-clear { background-color: #dc3545; }
-@media (max-width: 600px) { table, th, td { font-size: 14px; } .btn { width: 90%; font-size: 14px; } }
+@media (max-width: 600px) { table, th, td { font-size: 14px; } .btn { width: 90%; font-size: 14px; } .trigger-state { font-size: 20px; } }
