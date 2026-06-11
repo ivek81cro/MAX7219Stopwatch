@@ -18,10 +18,8 @@
     <h2>All Elapsed Times</h2>
     <table id="times-table"></table>
     <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
-    <form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form>
-    <form action='/clear' method='post' onsubmit='return confirm("Clear all times?");'>
-        <button class='btn btn-clear'>Clear All Times</button>
-    </form>
+    <button id="reset-button" class='btn btn-reset' type="button">Reset Timer</button>
+    <button id="clear-button" class='btn btn-clear' type="button">Clear All Times</button>
     <script>
 function updateTable() {
     fetch('/api/times')
@@ -68,11 +66,42 @@ function toggleTrigger() {
         .then(response => response.json())
         .then(renderTriggerState);
 }
+function postAction(url) {
+    return fetch(url, {
+        method: 'POST'
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error(`Request failed: ${response.status}`);
+        }
+        return response.json();
+    });
+}
+function resetTimer() {
+    postAction('/reset')
+        .then(() => {
+            updateStats();
+            updateTable();
+        })
+        .catch(error => console.error('Reset failed', error));
+}
+function clearTimes() {
+    if (!confirm('Clear all times?')) {
+        return;
+    }
+    postAction('/clear')
+        .then(() => {
+            updateStats();
+            updateTable();
+        })
+        .catch(error => console.error('Clear failed', error));
+}
 setInterval(updateTable, 5000);
 setInterval(updateStats, 5000);
 setInterval(updateTriggerState, 3000);
 window.onload = function() {
     document.getElementById('trigger-toggle').addEventListener('click', toggleTrigger);
+    document.getElementById('reset-button').addEventListener('click', resetTimer);
+    document.getElementById('clear-button').addEventListener('click', clearTimes);
     updateTable();
     updateStats();
     updateTriggerState();

@@ -317,8 +317,7 @@ void WebServerManager::handleReset() {
     if (_trackingResetHandler) {
         _trackingResetHandler();
     }
-    _server.sendHeader("Location", "/", true);
-    _server.send(302, "text/plain", "Redirecting...");
+    _server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void WebServerManager::handleClear() {
@@ -333,6 +332,5 @@ void WebServerManager::handleClear() {
     }
     
     updateStats(0, 0, 0, 0);
-    _server.sendHeader("Location", "/");
-    _server.send(303);
+    _server.send(200, "application/json", "{\"ok\":true}");
 }
