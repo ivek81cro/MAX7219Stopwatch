@@ -141,8 +141,6 @@ bool WebServerManager::setTriggerArmed(bool armed) {
     _triggerArmed = armed;
 
     if (!armed) {
-        Stopwatch::getInstance().reset();
-        StopwatchDisplay::getInstance().showTime("00:00:00");
         if (_trackingResetHandler) {
             _trackingResetHandler();
         }
