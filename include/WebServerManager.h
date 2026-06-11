@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 class WebServerManager {
 public:
@@ -18,6 +19,7 @@ public:
     bool loadTimes();
     bool isTriggerArmed() const;
     bool setTriggerArmed(bool armed);
+    void setTrackingResetHandler(std::function<void()> handler);
 private:
     static const size_t MAX_TIMES = 10000; // Max 10000 times (~40KB in SPIFFS)
     WebServer _server;
@@ -27,6 +29,7 @@ private:
     int _count;
     bool _triggerArmed;
     std::vector<unsigned long> _elapsedTimes;
+    std::function<void()> _trackingResetHandler;
     void handleRoot();
     void handleWifiForm();
     void handleWifiSave();

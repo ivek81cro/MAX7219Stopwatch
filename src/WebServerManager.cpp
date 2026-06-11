@@ -7,10 +7,6 @@
 #include <SPIFFS.h>
 #include <Preferences.h>
 
-extern int transitionCount;
-extern unsigned long ignoreUntil;
-extern bool lastLaserState;
-
 WebServerManager::WebServerManager(uint16_t port)
     : _server(port),
       _lastTime(0),
@@ -18,7 +14,8 @@ WebServerManager::WebServerManager(uint16_t port)
       _avgTime(0),
       _count(0),
       _triggerArmed(true),
-      _elapsedTimes() {}
+      _elapsedTimes(),
+      _trackingResetHandler() {}
 
 
 void WebServerManager::begin() {
@@ -146,17 +143,22 @@ bool WebServerManager::setTriggerArmed(bool armed) {
     if (!armed) {
         Stopwatch::getInstance().reset();
         StopwatchDisplay::getInstance().showTime("00:00:00");
-        transitionCount = 0;
-        ignoreUntil = 0;
-        lastLaserState = true;
+        if (_trackingResetHandler) {
+            _trackingResetHandler();
+        }
         Serial.println("Laser trigger disarmed via web.");
     } else {
-        transitionCount = 0;
-        ignoreUntil = 0;
+        if (_trackingResetHandler) {
+            _trackingResetHandler();
+        }
         Serial.println("Laser trigger armed via web.");
     }
 
     return true;
+}
+
+void WebServerManager::setTrackingResetHandler(std::function<void()> handler) {
+    _trackingResetHandler = std::move(handler);
 }
 
 void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count) {
@@ -314,7 +316,9 @@ void WebServerManager::handleReset() {
     updateStats(0, 0, 0, _count);
     StopwatchDisplay::getInstance().showTime("00:00:00");
     Stopwatch::getInstance().reset();
-    transitionCount = 0;
+    if (_trackingResetHandler) {
+        _trackingResetHandler();
+    }
     _server.sendHeader("Location", "/", true);
     _server.send(302, "text/plain", "Redirecting...");
 }

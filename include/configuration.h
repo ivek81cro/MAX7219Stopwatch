@@ -13,8 +13,10 @@
 
 // Laser senzor konfiguracija
 #define LASER_SENSOR_PIN 13
+#define LASER_SENSOR_DEBOUNCE_MS 30
 
-// Development test mode: set to 0 to disable serial trigger simulation.
+#ifndef ENABLE_SERIAL_TRIGGER_TEST
 #define ENABLE_SERIAL_TRIGGER_TEST 0
+#endif
 
 #endif // CONFIGURATION_H
