@@ -35,7 +35,13 @@ unsigned long ignoreUntil = 0;
 unsigned long lastDisplayUpdateMs = 0;
 
 void resetRaceTracking() {
-    raceState = RaceState::Idle;
+    if (Stopwatch::getInstance().isRunning()) {
+        raceState = RaceState::Running;
+    } else if (Stopwatch::getInstance().isStopped()) {
+        raceState = RaceState::Finished;
+    } else {
+        raceState = RaceState::Idle;
+    }
     ignoreUntil = 0;
     lastLaserState = laserSensor.isActive();
 }
