@@ -1,11 +1,36 @@
+#include "configuration.h"
 #include "LaserSensor.h"
 
-LaserSensor::LaserSensor(uint8_t pin) : _pin(pin) {}
+LaserSensor::LaserSensor(uint8_t pin)
+    : _pin(pin),
+      _lastRawState(true),
+      _stableState(true),
+      _lastChangeMs(0) {}
 
-void LaserSensor::begin() const {
+void LaserSensor::begin() {
     pinMode(_pin, INPUT_PULLUP);
+    const bool initialState = digitalRead(_pin) == HIGH;
+    _lastRawState = initialState;
+    _stableState = initialState;
+    _lastChangeMs = millis();
 }
 
-bool LaserSensor::isActive() const {
-    return digitalRead(_pin) == HIGH;
+bool LaserSensor::isActive() {
+    const bool rawState = digitalRead(_pin) == HIGH;
+    const unsigned long now = millis();
+
+    if (rawState != _lastRawState) {
+        _lastRawState = rawState;
+        _lastChangeMs = now;
+    }
+
+    const unsigned long debounceMs = rawState
+        ? LASER_SENSOR_RESTORE_DEBOUNCE_MS
+        : LASER_SENSOR_BREAK_DEBOUNCE_MS;
+
+    if (now - _lastChangeMs >= debounceMs) {
+        _stableState = rawState;
+    }
+
+    return _stableState;
 }

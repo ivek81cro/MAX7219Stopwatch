@@ -22,6 +22,31 @@ unsigned long bestTime = 0;
 unsigned long totalTime = 0;
 int finishedCount = 0;
 
+namespace {
+enum class RaceState {
+    Idle,
+    Running,
+    Finished
+};
+
+RaceState raceState = RaceState::Idle;
+bool lastLaserState = true;
+unsigned long ignoreUntil = 0;
+unsigned long lastDisplayUpdateMs = 0;
+
+void resetRaceTracking() {
+    if (Stopwatch::getInstance().isRunning()) {
+        raceState = RaceState::Running;
+    } else if (Stopwatch::getInstance().isStopped()) {
+        raceState = RaceState::Finished;
+    } else {
+        raceState = RaceState::Idle;
+    }
+    ignoreUntil = 0;
+    lastLaserState = laserSensor.isActive();
+}
+}
+
 void setup() {
     Serial.begin(115200);
     delay(2000); // Wait for serial monitor to connect
@@ -78,6 +103,7 @@ void setup() {
     }
 
     Serial.println("Starting web server...");
+    webServer.setTrackingResetHandler(resetRaceTracking);
     webServer.begin();
     Serial.println("Web server started.");
     
@@ -102,14 +128,13 @@ void setup() {
 #endif
 }
 
-
-
-
-int transitionCount = 0;
-bool lastLaserState = true; // assume starts ACTIVE
-unsigned long ignoreUntil = 0;
-
 static void updateDisplayFromElapsed(unsigned long elapsedMs) {
+    const unsigned long now = millis();
+    if (now - lastDisplayUpdateMs < 20) {
+        return;
+    }
+    lastDisplayUpdateMs = now;
+
     static char lastBuffer[20] = "";
     char buffer[20];
 
@@ -125,78 +150,74 @@ static void updateDisplayFromElapsed(unsigned long elapsedMs) {
     }
 }
 
-static void printElapsedThrottled(unsigned long now) {
-    static unsigned long lastPrintMs = 0;
-    if (!Stopwatch::getInstance().isRunning()) {
-        return;
-    }
-
-    if (now - lastPrintMs >= 250) {
-        Stopwatch::getInstance().printElapsed(Serial);
-        lastPrintMs = now;
-    }
-}
-
 void loop() {
 #if ENABLE_SERIAL_TRIGGER_TEST
     SerialTriggerTest::handleInput();
 #endif
 
+    if (!webServer.isTriggerArmed()) {
+        lastLaserState = laserSensor.isActive();
+        statusLed.set(false);
+        updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
+        webServer.handleClient();
+        return;
+    }
+
     bool active = laserSensor.isActive();
-#if ENABLE_SERIAL_TRIGGER_TEST
     unsigned long now = millis();
+#if ENABLE_SERIAL_TRIGGER_TEST
     if (SerialTriggerTest::consumeTriggerIfReady(now, ignoreUntil)) {
         // Force one loop pass to look like beam interruption.
         active = false;
     }
-#else
-    unsigned long now = millis();
 #endif
 
     statusLed.set(active);
-    // Ignore sensor for 3 seconds after each break
+
     if (now < ignoreUntil) {
         lastLaserState = active;
         updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
-        printElapsedThrottled(now);
         webServer.handleClient();
-        delay(50);
         return;
     }
 
-    // Detect transition from ACTIVE to INACTIVE
     if (lastLaserState && !active) {
-        transitionCount++;
-        ignoreUntil = now + 3000; // ignore for next 3 seconds
-        if (transitionCount == 1) {
-            Stopwatch::getInstance().start();
-            Serial.println("Stopwatch started!");
-        } else if (transitionCount == 2 && Stopwatch::getInstance().isRunning()) {
-            Stopwatch::getInstance().stop();
-            Stopwatch::getInstance().printResult(Serial);
-            unsigned long lastTime = Stopwatch::getInstance().elapsed();
-            
-            // Save to SPIFFS (auto-saves in addElapsed)
-            webServer.addElapsed(lastTime);
-            Serial.println("Time saved to SPIFFS.");
-            
-            if (bestTime == 0 || lastTime < bestTime) bestTime = lastTime;
-            totalTime += lastTime;
-            finishedCount++;
-            unsigned long avgTime = finishedCount ? totalTime / finishedCount : 0;
-            webServer.updateStats(lastTime, bestTime, avgTime, finishedCount);
-        } else if (transitionCount == 3 && Stopwatch::getInstance().isStopped()) {
-            Stopwatch::getInstance().reset();
-            Stopwatch::getInstance().start();
-            transitionCount = 1;
-            Serial.println("Stopwatch reset and new run started.");
+        ignoreUntil = now + LASER_TRIGGER_COOLDOWN_MS;
+        switch (raceState) {
+            case RaceState::Idle:
+                Stopwatch::getInstance().start();
+                raceState = RaceState::Running;
+                Serial.println("Stopwatch started!");
+                break;
+            case RaceState::Running: {
+                Stopwatch::getInstance().stop();
+                Serial.println("Stopwatch stopped by trigger.");
+                const unsigned long lastTime = Stopwatch::getInstance().elapsed();
+
+                webServer.addElapsed(lastTime);
+                Serial.println("Time saved to SPIFFS.");
+
+                if (bestTime == 0 || lastTime < bestTime) {
+                    bestTime = lastTime;
+                }
+                totalTime += lastTime;
+                finishedCount++;
+                const unsigned long avgTime = finishedCount ? totalTime / finishedCount : 0;
+                webServer.updateStats(lastTime, bestTime, avgTime, finishedCount);
+                raceState = RaceState::Finished;
+                break;
+            }
+            case RaceState::Finished:
+                Stopwatch::getInstance().reset();
+                Stopwatch::getInstance().start();
+                raceState = RaceState::Running;
+                Serial.println("Stopwatch reset and new run started.");
+                break;
         }
     }
     lastLaserState = active;
 
     updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
-    printElapsedThrottled(now);
 
     webServer.handleClient();
-    delay(50);
 }

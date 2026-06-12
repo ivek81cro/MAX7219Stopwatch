@@ -10,13 +10,16 @@
     <h1>Stopwatch Statistics</h1>
     <p style='text-align:center;'>Last Time: <span id="last-time"></span></p>
     <p style='text-align:center;'>Best Time: <span id="best-time"></span></p>
+    <div class="trigger-panel">
+        <p class="trigger-label">Laser Trigger</p>
+        <p id="trigger-state" class="trigger-state trigger-state-disarmed">%TRIGGER_STATE%</p>
+        <button id="trigger-toggle" class="btn btn-trigger" data-armed="%TRIGGER_ARMED%">%TRIGGER_BUTTON%</button>
+    </div>
     <h2>All Elapsed Times</h2>
     <table id="times-table"></table>
     <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
-    <form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form>
-    <form action='/clear' method='post' onsubmit='return confirm("Clear all times?");'>
-        <button class='btn btn-clear'>Clear All Times</button>
-    </form>
+    <button id="reset-button" class='btn btn-reset' type="button">Reset Timer</button>
+    <button id="clear-button" class='btn btn-clear' type="button">Clear All Times</button>
     <script>
 function updateTable() {
     fetch('/api/times')
@@ -37,11 +40,71 @@ function updateStats() {
             document.getElementById('best-time').textContent = stats.best;
         });
 }
+function renderTriggerState(state) {
+    const badge = document.getElementById('trigger-state');
+    const button = document.getElementById('trigger-toggle');
+    badge.textContent = state.label;
+    badge.className = 'trigger-state ' + (state.armed ? 'trigger-state-armed' : 'trigger-state-disarmed');
+    button.textContent = state.armed ? 'Disarm Trigger' : 'Arm Trigger';
+    button.dataset.armed = state.armed ? 'true' : 'false';
+}
+function updateTriggerState() {
+    fetch('/api/trigger')
+        .then(response => response.json())
+        .then(renderTriggerState);
+}
+function toggleTrigger() {
+    const button = document.getElementById('trigger-toggle');
+    const armed = button.dataset.armed === 'true';
+    fetch('/api/trigger', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'armed=' + (armed ? '0' : '1')
+    })
+        .then(response => response.json())
+        .then(renderTriggerState);
+}
+function postAction(url) {
+    return fetch(url, {
+        method: 'POST'
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error(`Request failed: ${response.status}`);
+        }
+        return response.json();
+    });
+}
+function resetTimer() {
+    postAction('/reset')
+        .then(() => {
+            updateStats();
+            updateTable();
+        })
+        .catch(error => console.error('Reset failed', error));
+}
+function clearTimes() {
+    if (!confirm('Clear all times?')) {
+        return;
+    }
+    postAction('/clear')
+        .then(() => {
+            updateStats();
+            updateTable();
+        })
+        .catch(error => console.error('Clear failed', error));
+}
 setInterval(updateTable, 5000);
 setInterval(updateStats, 5000);
+setInterval(updateTriggerState, 3000);
 window.onload = function() {
+    document.getElementById('trigger-toggle').addEventListener('click', toggleTrigger);
+    document.getElementById('reset-button').addEventListener('click', resetTimer);
+    document.getElementById('clear-button').addEventListener('click', clearTimes);
     updateTable();
     updateStats();
+    updateTriggerState();
 };
 </script>
 </body>

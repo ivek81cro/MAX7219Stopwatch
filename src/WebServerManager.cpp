@@ -7,7 +7,15 @@
 #include <SPIFFS.h>
 #include <Preferences.h>
 
-WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
+WebServerManager::WebServerManager(uint16_t port)
+    : _server(port),
+      _lastTime(0),
+      _bestTime(0),
+      _avgTime(0),
+      _count(0),
+      _triggerArmed(true),
+      _elapsedTimes(),
+      _trackingResetHandler() {}
 
 
 void WebServerManager::begin() {
@@ -38,6 +46,8 @@ void WebServerManager::begin() {
     _server.on("/savewifi", HTTP_POST, std::bind(&WebServerManager::handleWifiSave, this));
     _server.on("/clear", HTTP_POST, std::bind(&WebServerManager::handleClear, this));
     _server.on("/reset", HTTP_POST, std::bind(&WebServerManager::handleReset, this));
+    _server.on("/api/trigger", HTTP_GET, std::bind(&WebServerManager::handleTriggerState, this));
+    _server.on("/api/trigger", HTTP_POST, std::bind(&WebServerManager::handleTriggerControl, this));
     _server.on("/style.css", HTTP_GET, [this]() {
         File file = SPIFFS.open("/style.css", "r");
         if (file) {
@@ -119,6 +129,35 @@ void WebServerManager::handleWifiSave() {
     ESP.restart();
 }
 
+bool WebServerManager::isTriggerArmed() const {
+    return _triggerArmed;
+}
+
+bool WebServerManager::setTriggerArmed(bool armed) {
+    if (_triggerArmed == armed) {
+        return false;
+    }
+
+    _triggerArmed = armed;
+
+    if (!armed) {
+        if (_trackingResetHandler) {
+            _trackingResetHandler();
+        }
+        Serial.println("Laser trigger disarmed via web.");
+    } else {
+        if (_trackingResetHandler) {
+            _trackingResetHandler();
+        }
+        Serial.println("Laser trigger armed via web.");
+    }
+
+    return true;
+}
+
+void WebServerManager::setTrackingResetHandler(std::function<void()> handler) {
+    _trackingResetHandler = std::move(handler);
+}
 
 void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count) {
     _lastTime = lastTime;
@@ -198,6 +237,16 @@ void WebServerManager::handleClient() {
     _server.handleClient();
 }
 
+String WebServerManager::buildTriggerStateJson() const {
+    String json = "{";
+    json += "\"armed\":";
+    json += _triggerArmed ? "true" : "false";
+    json += ",\"label\":\"";
+    json += _triggerArmed ? "ARMED" : "DISARMED";
+    json += "\"}";
+    return json;
+}
+
 String WebServerManager::formatTime(unsigned long ms) const {
     unsigned int minutes = ms / 60000;
     unsigned int seconds = (ms % 60000) / 1000;
@@ -219,7 +268,7 @@ void WebServerManager::handleRoot() {
     }
 
     if (html.length() == 0) {
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>Stopwatch Stats</title><link rel='stylesheet' href='/style.css'></head><body><h1>Stopwatch Statistics</h1><p style='text-align:center;'>Last Time: <span id='last-time'>00:00:000</span></p><p style='text-align:center;'>Best Time: <span id='best-time'>00:00:000</span></p><h2>All Elapsed Times</h2><table id='times-table'><tr><th>#</th><th>Time</th></tr></table><form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form><form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form><form action='/clear' method='post' onsubmit='return confirm(\"Clear all times?\");'><button class='btn btn-clear'>Clear All Times</button></form><script>function updateTable(){fetch('/api/times').then(r=>r.json()).then(times=>{let t=document.getElementById('times-table');t.innerHTML='<tr><th>#</th><th>Time</th></tr>';times.forEach((v,i)=>{t.innerHTML+=`<tr><td>${i+1}</td><td>${v}</td></tr>`;});});}function updateStats(){fetch('/api/stats').then(r=>r.json()).then(s=>{document.getElementById('last-time').textContent=s.last;document.getElementById('best-time').textContent=s.best;});}window.onload=function(){updateTable();updateStats();setInterval(updateTable,5000);setInterval(updateStats,5000);};</script></body></html>";
+        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>SPIFFS Error</title></head><body><h1>Greska pri ucitavanju SPIFFS sadrzaja</h1><p>Datoteka /index.html nije dostupna ili je prazna.</p></body></html>";
     }
     // Generate table rows
     String tableRows;
@@ -237,7 +286,27 @@ void WebServerManager::handleRoot() {
     html.replace("%LAST%", formatTime(_lastTime));
     html.replace("%BEST%", formatTime(best));
     html.replace("%TABLE%", tableRows);
+    html.replace("%TRIGGER_STATE%", _triggerArmed ? "ARMED" : "DISARMED");
+    html.replace("%TRIGGER_BUTTON%", _triggerArmed ? "Disarm Trigger" : "Arm Trigger");
+    html.replace("%TRIGGER_ARMED%", _triggerArmed ? "true" : "false");
     _server.send(200, "text/html", html);
+}
+
+void WebServerManager::handleTriggerState() {
+    _server.send(200, "application/json", buildTriggerStateJson());
+}
+
+void WebServerManager::handleTriggerControl() {
+    if (!_server.hasArg("armed")) {
+        _server.send(400, "application/json", "{\"error\":\"Missing armed parameter\"}");
+        return;
+    }
+
+    String value = _server.arg("armed");
+    value.toLowerCase();
+    bool armed = (value == "1" || value == "true" || value == "on");
+    setTriggerArmed(armed);
+    _server.send(200, "application/json", buildTriggerStateJson());
 }
 
 
@@ -245,10 +314,10 @@ void WebServerManager::handleReset() {
     updateStats(0, 0, 0, _count);
     StopwatchDisplay::getInstance().showTime("00:00:00");
     Stopwatch::getInstance().reset();
-    extern int transitionCount;
-    transitionCount = 0;
-    _server.sendHeader("Location", "/", true);
-    _server.send(302, "text/plain", "Redirecting...");
+    if (_trackingResetHandler) {
+        _trackingResetHandler();
+    }
+    _server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void WebServerManager::handleClear() {
@@ -263,6 +332,5 @@ void WebServerManager::handleClear() {
     }
     
     updateStats(0, 0, 0, 0);
-    _server.sendHeader("Location", "/");
-    _server.send(303);
+    _server.send(200, "application/json", "{\"ok\":true}");
 }
