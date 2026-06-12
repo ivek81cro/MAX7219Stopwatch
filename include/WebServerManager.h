@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 class WebServerManager {
 public:
@@ -31,6 +32,7 @@ private:
     bool _triggerArmed;
     uint8_t _displayBrightness;
     std::vector<unsigned long> _elapsedTimes;
+    std::function<void()> _trackingResetHandler;
     void handleRoot();
     void handleWifiForm();
     void handleWifiSave();

@@ -298,7 +298,7 @@ void WebServerManager::handleRoot() {
     }
 
     if (html.length() == 0) {
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>Stopwatch Stats</title><link rel='stylesheet' href='/style.css'></head><body><h1>Stopwatch Statistics</h1><p style='text-align:center;'>Last Time: <span id='last-time'>00:00:000</span></p><p style='text-align:center;'>Best Time: <span id='best-time'>00:00:000</span></p><h2>All Elapsed Times</h2><table id='times-table'><tr><th>#</th><th>Time</th></tr></table><form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form><form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form><form action='/clear' method='post' onsubmit='return confirm(\"Clear all times?\");'><button class='btn btn-clear'>Clear All Times</button></form><script>function updateTable(){fetch('/api/times').then(r=>r.json()).then(times=>{let t=document.getElementById('times-table');t.innerHTML='<tr><th>#</th><th>Time</th></tr>';times.forEach((v,i)=>{t.innerHTML+=`<tr><td>${i+1}</td><td>${v}</td></tr>`;});});}function updateStats(){fetch('/api/stats').then(r=>r.json()).then(s=>{document.getElementById('last-time').textContent=s.last;document.getElementById('best-time').textContent=s.best;});}window.onload=function(){updateTable();updateStats();setInterval(updateTable,5000);setInterval(updateStats,5000);};</script></body></html>";
+        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>SPIFFS Error</title></head><body><h1>Greska pri ucitavanju SPIFFS sadrzaja</h1><p>Datoteka /index.html nije dostupna ili je prazna.</p></body></html>";
     }
     // Generate table rows
     String tableRows;
@@ -365,10 +365,10 @@ void WebServerManager::handleReset() {
     updateStats(0, 0, 0, _count);
     StopwatchDisplay::getInstance().showTime("00:00:00");
     Stopwatch::getInstance().reset();
-    extern int transitionCount;
-    transitionCount = 0;
-    _server.sendHeader("Location", "/", true);
-    _server.send(302, "text/plain", "Redirecting...");
+    if (_trackingResetHandler) {
+        _trackingResetHandler();
+    }
+    _server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void WebServerManager::handleClear() {
@@ -383,6 +383,5 @@ void WebServerManager::handleClear() {
     }
     
     updateStats(0, 0, 0, 0);
-    _server.sendHeader("Location", "/");
-    _server.send(303);
+    _server.send(200, "application/json", "{\"ok\":true}");
 }

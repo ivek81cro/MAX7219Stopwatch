@@ -25,10 +25,8 @@
     <h2>All Elapsed Times</h2>
     <table id="times-table"></table>
     <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
-    <form action='/reset' method='post'><button class='btn btn-reset'>Reset Timer</button></form>
-    <form action='/clear' method='post' onsubmit='return confirm("Clear all times?");'>
-        <button class='btn btn-clear'>Clear All Times</button>
-    </form>
+    <button id="reset-button" class='btn btn-reset' type="button">Reset Timer</button>
+    <button id="clear-button" class='btn btn-clear' type="button">Clear All Times</button>
     <script>
 function updateTable() {
     fetch('/api/times')

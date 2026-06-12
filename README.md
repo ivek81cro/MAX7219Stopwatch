@@ -43,8 +43,8 @@ Current values:
 
 - `HARDWARE_TYPE`: `MD_MAX72XX::FC16_HW`
 - `MAX_DEVICES`: `5`
-- `DATA_PIN`: `26`
-- `CLK_PIN`: `14`
+- `DATA_PIN`: `14`
+- `CLK_PIN`: `26`
 - `CS_PIN`: `27`
 - `TOTAL_COLUMNS`: `40`
 - `LASER_SENSOR_PIN`: `13`
