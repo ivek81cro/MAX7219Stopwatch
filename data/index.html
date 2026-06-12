@@ -10,6 +10,18 @@
     <h1>Stopwatch Statistics</h1>
     <p style='text-align:center;'>Last Time: <span id="last-time"></span></p>
     <p style='text-align:center;'>Best Time: <span id="best-time"></span></p>
+    <div class="trigger-panel">
+        <p class="trigger-label">Laser Trigger</p>
+        <p id="trigger-state" class="trigger-state trigger-state-disarmed">%TRIGGER_STATE%</p>
+        <button id="trigger-toggle" class="btn btn-trigger" data-armed="%TRIGGER_ARMED%">%TRIGGER_BUTTON%</button>
+    </div>
+    <div class="trigger-panel">
+        <p class="trigger-label">Display Brightness</p>
+        <div class="brightness-control">
+            <input id="brightness-slider" type="range" min="0" max="15" value="%BRIGHTNESS_VALUE%">
+            <span id="brightness-value">%BRIGHTNESS_VALUE%</span>
+        </div>
+    </div>
     <h2>All Elapsed Times</h2>
     <table id="times-table"></table>
     <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
@@ -37,11 +49,100 @@ function updateStats() {
             document.getElementById('best-time').textContent = stats.best;
         });
 }
+function renderTriggerState(state) {
+    const badge = document.getElementById('trigger-state');
+    const button = document.getElementById('trigger-toggle');
+    badge.textContent = state.label;
+    badge.className = 'trigger-state ' + (state.armed ? 'trigger-state-armed' : 'trigger-state-disarmed');
+    button.textContent = state.armed ? 'Disarm Trigger' : 'Arm Trigger';
+    button.dataset.armed = state.armed ? 'true' : 'false';
+}
+function updateTriggerState() {
+    fetch('/api/trigger')
+        .then(response => response.json())
+        .then(renderTriggerState);
+}
+function toggleTrigger() {
+    const button = document.getElementById('trigger-toggle');
+    const armed = button.dataset.armed === 'true';
+    fetch('/api/trigger', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'armed=' + (armed ? '0' : '1')
+    })
+        .then(response => response.json())
+        .then(renderTriggerState);
+}
+function renderBrightnessState(state) {
+    document.getElementById('brightness-slider').value = state.value;
+    document.getElementById('brightness-value').textContent = state.value;
+}
+function updateBrightnessState() {
+    fetch('/api/brightness')
+        .then(response => response.json())
+        .then(renderBrightnessState);
+}
+function setBrightness(value) {
+    document.getElementById('brightness-value').textContent = value;
+    fetch('/api/brightness', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'value=' + encodeURIComponent(value)
+    })
+        .then(response => response.json())
+        .then(renderBrightnessState);
+}
+function postAction(url) {
+    return fetch(url, {
+        method: 'POST'
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error(`Request failed: ${response.status}`);
+        }
+        return response.json();
+    });
+}
+function resetTimer() {
+    postAction('/reset')
+        .then(() => {
+            updateStats();
+            updateTable();
+        })
+        .catch(error => console.error('Reset failed', error));
+}
+function clearTimes() {
+    if (!confirm('Clear all times?')) {
+        return;
+    }
+    postAction('/clear')
+        .then(() => {
+            updateStats();
+            updateTable();
+        })
+        .catch(error => console.error('Clear failed', error));
+}
 setInterval(updateTable, 5000);
 setInterval(updateStats, 5000);
+setInterval(updateTriggerState, 3000);
+setInterval(updateBrightnessState, 5000);
 window.onload = function() {
+    document.getElementById('trigger-toggle').addEventListener('click', toggleTrigger);
+    document.getElementById('brightness-slider').addEventListener('input', function(event) {
+        document.getElementById('brightness-value').textContent = event.target.value;
+    });
+    document.getElementById('brightness-slider').addEventListener('change', function(event) {
+        setBrightness(event.target.value);
+    });
+    document.getElementById('reset-button').addEventListener('click', resetTimer);
+    document.getElementById('clear-button').addEventListener('click', clearTimes);
     updateTable();
     updateStats();
+    updateTriggerState();
+    updateBrightnessState();
 };
 </script>
 </body>

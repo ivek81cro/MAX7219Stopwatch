@@ -7,7 +7,16 @@
 #include <SPIFFS.h>
 #include <Preferences.h>
 
-WebServerManager::WebServerManager(uint16_t port) : _server(port), _lastTime(0), _bestTime(0), _avgTime(0), _count(0), _elapsedTimes() {}
+WebServerManager::WebServerManager(uint16_t port)
+    : _server(port),
+      _lastTime(0),
+      _bestTime(0),
+      _avgTime(0),
+      _count(0),
+      _triggerArmed(true),
+      _displayBrightness(8),
+      _elapsedTimes(),
+      _trackingResetHandler() {}
 
 
 void WebServerManager::begin() {
@@ -38,6 +47,10 @@ void WebServerManager::begin() {
     _server.on("/savewifi", HTTP_POST, std::bind(&WebServerManager::handleWifiSave, this));
     _server.on("/clear", HTTP_POST, std::bind(&WebServerManager::handleClear, this));
     _server.on("/reset", HTTP_POST, std::bind(&WebServerManager::handleReset, this));
+    _server.on("/api/trigger", HTTP_GET, std::bind(&WebServerManager::handleTriggerState, this));
+    _server.on("/api/trigger", HTTP_POST, std::bind(&WebServerManager::handleTriggerControl, this));
+    _server.on("/api/brightness", HTTP_GET, std::bind(&WebServerManager::handleBrightnessState, this));
+    _server.on("/api/brightness", HTTP_POST, std::bind(&WebServerManager::handleBrightnessControl, this));
     _server.on("/style.css", HTTP_GET, [this]() {
         File file = SPIFFS.open("/style.css", "r");
         if (file) {
@@ -119,6 +132,54 @@ void WebServerManager::handleWifiSave() {
     ESP.restart();
 }
 
+bool WebServerManager::isTriggerArmed() const {
+    return _triggerArmed;
+}
+
+bool WebServerManager::setTriggerArmed(bool armed) {
+    if (_triggerArmed == armed) {
+        return false;
+    }
+
+    _triggerArmed = armed;
+
+    if (!armed) {
+        if (_trackingResetHandler) {
+            _trackingResetHandler();
+        }
+        Serial.println("Laser trigger disarmed via web.");
+    } else {
+        if (_trackingResetHandler) {
+            _trackingResetHandler();
+        }
+        Serial.println("Laser trigger armed via web.");
+    }
+
+    return true;
+}
+
+uint8_t WebServerManager::getDisplayBrightness() const {
+    return _displayBrightness;
+}
+
+bool WebServerManager::setDisplayBrightness(uint8_t brightness) {
+    if (brightness > 15) {
+        brightness = 15;
+    }
+
+    if (_displayBrightness == brightness) {
+        return false;
+    }
+
+    _displayBrightness = brightness;
+    StopwatchDisplay::getInstance().setIntensity(_displayBrightness);
+    Serial.printf("Display brightness set to %u\n", _displayBrightness);
+    return true;
+}
+
+void WebServerManager::setTrackingResetHandler(std::function<void()> handler) {
+    _trackingResetHandler = std::move(handler);
+}
 
 void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count) {
     _lastTime = lastTime;
@@ -198,6 +259,24 @@ void WebServerManager::handleClient() {
     _server.handleClient();
 }
 
+String WebServerManager::buildTriggerStateJson() const {
+    String json = "{";
+    json += "\"armed\":";
+    json += _triggerArmed ? "true" : "false";
+    json += ",\"label\":\"";
+    json += _triggerArmed ? "ARMED" : "DISARMED";
+    json += "\"}";
+    return json;
+}
+
+String WebServerManager::buildBrightnessStateJson() const {
+    String json = "{";
+    json += "\"value\":";
+    json += String(_displayBrightness);
+    json += "}";
+    return json;
+}
+
 String WebServerManager::formatTime(unsigned long ms) const {
     unsigned int minutes = ms / 60000;
     unsigned int seconds = (ms % 60000) / 1000;
@@ -237,7 +316,48 @@ void WebServerManager::handleRoot() {
     html.replace("%LAST%", formatTime(_lastTime));
     html.replace("%BEST%", formatTime(best));
     html.replace("%TABLE%", tableRows);
+    html.replace("%TRIGGER_STATE%", _triggerArmed ? "ARMED" : "DISARMED");
+    html.replace("%TRIGGER_BUTTON%", _triggerArmed ? "Disarm Trigger" : "Arm Trigger");
+    html.replace("%TRIGGER_ARMED%", _triggerArmed ? "true" : "false");
+    html.replace("%BRIGHTNESS_VALUE%", String(_displayBrightness));
     _server.send(200, "text/html", html);
+}
+
+void WebServerManager::handleTriggerState() {
+    _server.send(200, "application/json", buildTriggerStateJson());
+}
+
+void WebServerManager::handleTriggerControl() {
+    if (!_server.hasArg("armed")) {
+        _server.send(400, "application/json", "{\"error\":\"Missing armed parameter\"}");
+        return;
+    }
+
+    String value = _server.arg("armed");
+    value.toLowerCase();
+    bool armed = (value == "1" || value == "true" || value == "on");
+    setTriggerArmed(armed);
+    _server.send(200, "application/json", buildTriggerStateJson());
+}
+
+void WebServerManager::handleBrightnessState() {
+    _server.send(200, "application/json", buildBrightnessStateJson());
+}
+
+void WebServerManager::handleBrightnessControl() {
+    if (!_server.hasArg("value")) {
+        _server.send(400, "application/json", "{\"error\":\"Missing value parameter\"}");
+        return;
+    }
+
+    int brightness = _server.arg("value").toInt();
+    if (brightness < 0 || brightness > 15) {
+        _server.send(400, "application/json", "{\"error\":\"Brightness must be between 0 and 15\"}");
+        return;
+    }
+
+    setDisplayBrightness(static_cast<uint8_t>(brightness));
+    _server.send(200, "application/json", buildBrightnessStateJson());
 }
 
 

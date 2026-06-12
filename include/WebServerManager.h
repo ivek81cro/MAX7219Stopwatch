@@ -16,6 +16,11 @@ public:
     void handleClient();
     bool saveTimes();
     bool loadTimes();
+    bool isTriggerArmed() const;
+    bool setTriggerArmed(bool armed);
+    uint8_t getDisplayBrightness() const;
+    bool setDisplayBrightness(uint8_t brightness);
+    void setTrackingResetHandler(std::function<void()> handler);
 private:
     static const size_t MAX_TIMES = 10000; // Max 10000 times (~40KB in SPIFFS)
     WebServer _server;
@@ -23,13 +28,21 @@ private:
     unsigned long _bestTime;
     unsigned long _avgTime;
     int _count;
+    bool _triggerArmed;
+    uint8_t _displayBrightness;
     std::vector<unsigned long> _elapsedTimes;
     void handleRoot();
     void handleWifiForm();
     void handleWifiSave();
     void handleClear();
     void handleReset();
+    void handleTriggerState();
+    void handleTriggerControl();
+    void handleBrightnessState();
+    void handleBrightnessControl();
     String formatTime(unsigned long ms) const;
+    String buildTriggerStateJson() const;
+    String buildBrightnessStateJson() const;
 };
 
 #endif // MAX7219STOPWATCH_WEBSERVERMANAGER_H
