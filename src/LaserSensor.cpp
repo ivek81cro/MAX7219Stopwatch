@@ -24,7 +24,11 @@ bool LaserSensor::isActive() {
         _lastChangeMs = now;
     }
 
-    if (now - _lastChangeMs >= LASER_SENSOR_DEBOUNCE_MS) {
+    const unsigned long debounceMs = rawState
+        ? LASER_SENSOR_RESTORE_DEBOUNCE_MS
+        : LASER_SENSOR_BREAK_DEBOUNCE_MS;
+
+    if (now - _lastChangeMs >= debounceMs) {
         _stableState = rawState;
     }
 

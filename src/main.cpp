@@ -150,18 +150,6 @@ static void updateDisplayFromElapsed(unsigned long elapsedMs) {
     }
 }
 
-static void printElapsedThrottled(unsigned long now) {
-    static unsigned long lastPrintMs = 0;
-    if (!Stopwatch::getInstance().isRunning()) {
-        return;
-    }
-
-    if (now - lastPrintMs >= 250) {
-        Stopwatch::getInstance().printElapsed(Serial);
-        lastPrintMs = now;
-    }
-}
-
 void loop() {
 #if ENABLE_SERIAL_TRIGGER_TEST
     SerialTriggerTest::handleInput();
@@ -176,29 +164,25 @@ void loop() {
     }
 
     bool active = laserSensor.isActive();
-#if ENABLE_SERIAL_TRIGGER_TEST
     unsigned long now = millis();
+#if ENABLE_SERIAL_TRIGGER_TEST
     if (SerialTriggerTest::consumeTriggerIfReady(now, ignoreUntil)) {
         // Force one loop pass to look like beam interruption.
         active = false;
     }
-#else
-    unsigned long now = millis();
 #endif
 
     statusLed.set(active);
-    // Ignore sensor for 3 seconds after each break
+
     if (now < ignoreUntil) {
         lastLaserState = active;
         updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
-        printElapsedThrottled(now);
         webServer.handleClient();
         return;
     }
 
-    // Detect transition from ACTIVE to INACTIVE
     if (lastLaserState && !active) {
-        ignoreUntil = now + 3000; // ignore for next 3 seconds
+        ignoreUntil = now + LASER_TRIGGER_COOLDOWN_MS;
         switch (raceState) {
             case RaceState::Idle:
                 Stopwatch::getInstance().start();
@@ -207,7 +191,7 @@ void loop() {
                 break;
             case RaceState::Running: {
                 Stopwatch::getInstance().stop();
-                Stopwatch::getInstance().printResult(Serial);
+                Serial.println("Stopwatch stopped by trigger.");
                 const unsigned long lastTime = Stopwatch::getInstance().elapsed();
 
                 webServer.addElapsed(lastTime);
@@ -234,7 +218,6 @@ void loop() {
     lastLaserState = active;
 
     updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
-    printElapsedThrottled(now);
 
     webServer.handleClient();
 }
