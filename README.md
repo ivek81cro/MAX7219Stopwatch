@@ -5,6 +5,7 @@ ESP32 stopwatch for laser pass timing with MAX7219 LED matrix output and a web U
 - SD card support is removed (hardware is obsolete).
 - Results are persisted only to SPIFFS (`/times.dat`).
 - WiFi credentials are stored in NVS (`Preferences`, namespace `wifi`).
+- Empty SSID values are rejected before credentials are saved.
 - Web app assets are served from `data/` via `uploadfs`.
 - Captive-portal probe routes are redirected to `/` for better phone/laptop AP behavior.
 - If `/index.html` or `/style.css` is missing/empty in SPIFFS, firmware serves a built-in fallback page/style.
@@ -16,6 +17,8 @@ ESP32 stopwatch for laser pass timing with MAX7219 LED matrix output and a web U
 - Web dashboard with:
   - last and best time
   - full list of recorded times
+  - laser trigger arm/disarm control
+  - display brightness control
   - reset and clear actions
   - WiFi setup page
 - Persistent time history in SPIFFS.
@@ -25,11 +28,13 @@ ESP32 stopwatch for laser pass timing with MAX7219 LED matrix output and a web U
 - `src/main.cpp`
   - Initialization, WiFi mode selection, sensor loop, stopwatch state transitions.
 - `src/Stopwatch.cpp`
-  - Stopwatch logic.
+  - Stopwatch logic (singleton instance).
 - `src/StopwatchDisplay.cpp`
-  - MAX7219 rendering.
+  - MAX7219 rendering and brightness control (singleton instance).
 - `src/WebServerManager.cpp`
   - HTTP routes, API, SPIFFS time persistence, fallback web serving.
+- `src/SerialTriggerTest.cpp`
+  - Optional serial-trigger test helper when `ENABLE_SERIAL_TRIGGER_TEST=1`.
 - `include/configuration.h`
   - Hardware pin configuration.
 - `data/`
@@ -74,6 +79,7 @@ If upload reports that COM port is busy, close Serial Monitor and retry.
 - If saved SSID/password exist in NVS, device tries STA connection.
 - If STA connection fails, device starts AP mode.
 - If no saved credentials exist, AP mode starts immediately.
+- `POST /savewifi` rejects an empty `ssid` with HTTP `400`.
 
 AP defaults:
 
@@ -84,18 +90,28 @@ AP defaults:
 
 - `GET /`, `GET /index.html`
   - Main dashboard.
+- `GET /style.css`
+  - Stylesheet from SPIFFS, with built-in fallback CSS if missing/empty.
 - `GET /wifi`
   - WiFi credentials form.
 - `POST /savewifi`
   - Save WiFi credentials to NVS and reboot.
 - `POST /reset`
-  - Reset stopwatch state.
+  - Reset stopwatch state and display to `00:00:00`.
 - `POST /clear`
   - Clear all stored times (`/times.dat`).
 - `GET /api/times`
   - JSON array of all recorded times.
 - `GET /api/stats`
   - JSON summary (`last`, `best`, `count`).
+- `GET /api/trigger`
+  - JSON trigger state (`armed`, `label`).
+- `POST /api/trigger`
+  - Set trigger state with form field `armed=0|1|true|false|on`.
+- `GET /api/brightness`
+  - JSON brightness state (`value`).
+- `POST /api/brightness`
+  - Set display brightness with form field `value=0..15`.
 
 Captive portal compatibility routes redirected to `/`:
 
@@ -109,3 +125,6 @@ Captive portal compatibility routes redirected to `/`:
 
 - Main web UI is loaded from SPIFFS. After changing files in `data/`, always run `uploadfs`.
 - Time data file format is binary and stored in `/times.dat`.
+- Times are returned by `GET /api/times` in insertion order; the browser renders the table client-side.
+- Trigger cooldown is `3000 ms` by default (`LASER_TRIGGER_COOLDOWN_MS` in `include/configuration.h`).
+- Serial trigger testing is compiled out by default because `ENABLE_SERIAL_TRIGGER_TEST=0` in `platformio.ini`.
