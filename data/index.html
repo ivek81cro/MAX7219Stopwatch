@@ -27,26 +27,23 @@
     <form action='/wifi' method='get'><button class='btn'>WiFi Setup</button></form>
     <button id="reset-button" class='btn btn-reset' type="button">Reset Timer</button>
     <button id="clear-button" class='btn btn-clear' type="button">Clear All Times</button>
-    <script>
-function updateTable() {
-    fetch('/api/times')
-        .then(response => response.json())
-        .then(times => {
-            let table = document.getElementById('times-table');
-            table.innerHTML = "<tr><th>#</th><th>Time</th></tr>";
-            times.forEach((t, i) => {
-                table.innerHTML += `<tr><td>${i+1}</td><td>${t}</td></tr>`;
-            });
-        });
+<script>
+let currentRevision = null;
+let revisionPollHandle = null;
+
+function renderTable(times) {
+    let table = document.getElementById('times-table');
+    table.innerHTML = "<tr><th>#</th><th>Time</th></tr>";
+    times.forEach((t, i) => {
+        table.innerHTML += `<tr><td>${i+1}</td><td>${t}</td></tr>`;
+    });
 }
-function updateStats() {
-    fetch('/api/stats')
-        .then(response => response.json())
-        .then(stats => {
-            document.getElementById('last-time').textContent = stats.last;
-            document.getElementById('best-time').textContent = stats.best;
-        });
+
+function renderStats(stats) {
+    document.getElementById('last-time').textContent = stats.last;
+    document.getElementById('best-time').textContent = stats.best;
 }
+
 function renderTriggerState(state) {
     const badge = document.getElementById('trigger-state');
     const button = document.getElementById('trigger-toggle');
@@ -55,11 +52,7 @@ function renderTriggerState(state) {
     button.textContent = state.armed ? 'Disarm Trigger' : 'Arm Trigger';
     button.dataset.armed = state.armed ? 'true' : 'false';
 }
-function updateTriggerState() {
-    fetch('/api/trigger')
-        .then(response => response.json())
-        .then(renderTriggerState);
-}
+
 function toggleTrigger() {
     const button = document.getElementById('trigger-toggle');
     const armed = button.dataset.armed === 'true';
@@ -71,16 +64,15 @@ function toggleTrigger() {
         body: 'armed=' + (armed ? '0' : '1')
     })
         .then(response => response.json())
-        .then(renderTriggerState);
+        .then(state => {
+            renderTriggerState(state);
+            syncRevision();
+        });
 }
 function renderBrightnessState(state) {
-    document.getElementById('brightness-slider').value = state.value;
-    document.getElementById('brightness-value').textContent = state.value;
-}
-function updateBrightnessState() {
-    fetch('/api/brightness')
-        .then(response => response.json())
-        .then(renderBrightnessState);
+    const value = typeof state === 'object' ? state.value : state;
+    document.getElementById('brightness-slider').value = value;
+    document.getElementById('brightness-value').textContent = value;
 }
 function setBrightness(value) {
     document.getElementById('brightness-value').textContent = value;
@@ -92,7 +84,10 @@ function setBrightness(value) {
         body: 'value=' + encodeURIComponent(value)
     })
         .then(response => response.json())
-        .then(renderBrightnessState);
+        .then(state => {
+            renderBrightnessState(state);
+            syncRevision();
+        });
 }
 function postAction(url) {
     return fetch(url, {
@@ -104,11 +99,47 @@ function postAction(url) {
         return response.json();
     });
 }
+function refreshDashboard() {
+    fetch('/api/dashboard')
+        .then(response => response.json())
+        .then(data => {
+            renderTable(data.times || []);
+            renderStats(data);
+            renderTriggerState(data.trigger);
+            renderBrightnessState(data.brightness);
+        })
+        .catch(error => console.error('Dashboard refresh failed', error));
+}
+function syncRevision() {
+    fetch('/api/revision')
+        .then(response => response.json())
+        .then(data => {
+            const nextRevision = Number(data.revision);
+            if (!Number.isFinite(nextRevision)) {
+                return;
+            }
+            if (currentRevision === null) {
+                currentRevision = nextRevision;
+                return;
+            }
+            if (nextRevision !== currentRevision) {
+                currentRevision = nextRevision;
+                refreshDashboard();
+            }
+        })
+        .catch(error => console.error('Revision sync failed', error));
+}
+function startRevisionPolling() {
+    if (revisionPollHandle !== null) {
+        clearInterval(revisionPollHandle);
+    }
+    revisionPollHandle = setInterval(syncRevision, 2000);
+}
 function resetTimer() {
     postAction('/reset')
         .then(() => {
-            updateStats();
-            updateTable();
+            refreshDashboard();
+            syncRevision();
         })
         .catch(error => console.error('Reset failed', error));
 }
@@ -118,15 +149,11 @@ function clearTimes() {
     }
     postAction('/clear')
         .then(() => {
-            updateStats();
-            updateTable();
+            refreshDashboard();
+            syncRevision();
         })
         .catch(error => console.error('Clear failed', error));
 }
-setInterval(updateTable, 5000);
-setInterval(updateStats, 5000);
-setInterval(updateTriggerState, 3000);
-setInterval(updateBrightnessState, 5000);
 window.onload = function() {
     document.getElementById('trigger-toggle').addEventListener('click', toggleTrigger);
     document.getElementById('brightness-slider').addEventListener('input', function(event) {
@@ -137,10 +164,9 @@ window.onload = function() {
     });
     document.getElementById('reset-button').addEventListener('click', resetTimer);
     document.getElementById('clear-button').addEventListener('click', clearTimes);
-    updateTable();
-    updateStats();
-    updateTriggerState();
-    updateBrightnessState();
+    refreshDashboard();
+    syncRevision();
+    startRevisionPolling();
 };
 </script>
 </body>

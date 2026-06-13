@@ -11,10 +11,17 @@ WebServerManager::WebServerManager(uint16_t port)
     : _server(port),
       _lastTime(0),
       _bestTime(0),
+      _revision(0),
       _triggerArmed(true),
       _displayBrightness(8),
       _elapsedTimes(),
-      _trackingResetHandler() {}
+      _trackingResetHandler(),
+      _cachedTimesJson(),
+      _cachedStatsJson(),
+      _cachedDashboardJson(),
+      _timesJsonDirty(true),
+      _statsJsonDirty(true),
+      _dashboardJsonDirty(true) {}
 
 
 void WebServerManager::begin() {
@@ -49,6 +56,8 @@ void WebServerManager::begin() {
     _server.on("/api/trigger", HTTP_POST, std::bind(&WebServerManager::handleTriggerControl, this));
     _server.on("/api/brightness", HTTP_GET, std::bind(&WebServerManager::handleBrightnessState, this));
     _server.on("/api/brightness", HTTP_POST, std::bind(&WebServerManager::handleBrightnessControl, this));
+    _server.on("/api/revision", HTTP_GET, std::bind(&WebServerManager::handleRevisionState, this));
+    _server.on("/api/dashboard", HTTP_GET, std::bind(&WebServerManager::handleDashboardState, this));
     _server.on("/style.css", HTTP_GET, [this]() {
         File file = SPIFFS.open("/style.css", "r");
         if (file) {
@@ -64,28 +73,11 @@ void WebServerManager::begin() {
         }
     });
     _server.on("/api/times", HTTP_GET, [this]() {
-        String json = "[";
-        for (size_t i = 0; i < _elapsedTimes.size(); ++i) {
-            if (i > 0) json += ",";
-            json += "\"" + formatTime(_elapsedTimes[i]) + "\"";
-        }
-        json += "]";
-        _server.send(200, "application/json", json);
+        _server.send(200, "application/json", buildTimesJson());
     });
     
     _server.on("/api/stats", HTTP_GET, [this]() {
-        // Calculate stats
-        unsigned long best = 0;
-        if (!_elapsedTimes.empty()) {
-            best = *std::min_element(_elapsedTimes.begin(), _elapsedTimes.end());
-        }
-        
-        String json = "{";
-        json += "\"last\":\"" + formatTime(_lastTime) + "\",";
-        json += "\"best\":\"" + formatTime(best) + "\",";
-        json += "\"count\":" + String(_elapsedTimes.size());
-        json += "}";
-        _server.send(200, "application/json", json);
+        _server.send(200, "application/json", buildStatsJson());
     });
     
     // Handle 404 for all other requests (favicon, etc)
@@ -159,6 +151,9 @@ bool WebServerManager::setTriggerArmed(bool armed) {
         Serial.println("Laser trigger armed via web.");
     }
 
+    touchRevision();
+    invalidateDashboardCache();
+
     return true;
 }
 
@@ -178,6 +173,8 @@ bool WebServerManager::setDisplayBrightness(uint8_t brightness) {
     _displayBrightness = brightness;
     StopwatchDisplay::getInstance().setIntensity(_displayBrightness);
     Serial.printf("Display brightness set to %u\n", _displayBrightness);
+    touchRevision();
+    invalidateDashboardCache();
     return true;
 }
 
@@ -185,9 +182,16 @@ void WebServerManager::setTrackingResetHandler(std::function<void()> handler) {
     _trackingResetHandler = std::move(handler);
 }
 
+unsigned long WebServerManager::getRevision() const {
+    return _revision;
+}
+
 void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime) {
     _lastTime = lastTime;
     _bestTime = bestTime;
+    invalidateStatsCache();
+    invalidateDashboardCache();
+    touchRevision();
 }
 
 void WebServerManager::addElapsed(unsigned long elapsed) {
@@ -198,6 +202,10 @@ void WebServerManager::addElapsed(unsigned long elapsed) {
     }
     _elapsedTimes.push_back(elapsed);
     saveTimes(); // Auto-save to SPIFFS
+    invalidateTimesCache();
+    invalidateStatsCache();
+    invalidateDashboardCache();
+    touchRevision();
 }
 
 bool WebServerManager::saveTimes() {
@@ -256,6 +264,10 @@ bool WebServerManager::loadTimes() {
     
     file.close();
     Serial.printf("Loaded %d times from SPIFFS\n", _elapsedTimes.size());
+    _bestTime = _elapsedTimes.empty() ? 0 : *std::min_element(_elapsedTimes.begin(), _elapsedTimes.end());
+    invalidateTimesCache();
+    invalidateStatsCache();
+    invalidateDashboardCache();
     return true;
 }
 
@@ -279,6 +291,82 @@ String WebServerManager::buildBrightnessStateJson() const {
     json += String(_displayBrightness);
     json += "}";
     return json;
+}
+
+String WebServerManager::buildRevisionJson() const {
+    String json = "{";
+    json += "\"revision\":";
+    json += String(_revision);
+    json += "}";
+    return json;
+}
+
+const String& WebServerManager::buildTimesJson() {
+    if (!_timesJsonDirty) {
+        return _cachedTimesJson;
+    }
+
+    String json = "[";
+    for (size_t i = 0; i < _elapsedTimes.size(); ++i) {
+        if (i > 0) {
+            json += ",";
+        }
+        json += "\"";
+        json += formatTime(_elapsedTimes[i]);
+        json += "\"";
+    }
+    json += "]";
+
+    _cachedTimesJson = std::move(json);
+    _timesJsonDirty = false;
+    return _cachedTimesJson;
+}
+
+const String& WebServerManager::buildStatsJson() {
+    if (!_statsJsonDirty) {
+        return _cachedStatsJson;
+    }
+
+    String json = "{";
+    json += "\"last\":\"";
+    json += formatTime(_lastTime);
+    json += "\",\"best\":\"";
+    json += formatTime(_bestTime);
+    json += "\",\"count\":";
+    json += String(_elapsedTimes.size());
+    json += "}";
+
+    _cachedStatsJson = std::move(json);
+    _statsJsonDirty = false;
+    return _cachedStatsJson;
+}
+
+const String& WebServerManager::buildDashboardJson() {
+    if (!_dashboardJsonDirty) {
+        return _cachedDashboardJson;
+    }
+
+    String json = "{";
+    json += "\"last\":\"";
+    json += formatTime(_lastTime);
+    json += "\",\"best\":\"";
+    json += formatTime(_bestTime);
+    json += "\",\"count\":";
+    json += String(_elapsedTimes.size());
+    json += ",\"trigger\":{";
+    json += "\"armed\":";
+    json += _triggerArmed ? "true" : "false";
+    json += ",\"label\":\"";
+    json += _triggerArmed ? "ARMED" : "DISARMED";
+    json += "\"},\"brightness\":";
+    json += String(_displayBrightness);
+    json += ",\"times\":";
+    json += buildTimesJson();
+    json += "}";
+
+    _cachedDashboardJson = std::move(json);
+    _dashboardJsonDirty = false;
+    return _cachedDashboardJson;
 }
 
 String WebServerManager::formatTime(unsigned long ms) const {
@@ -308,12 +396,8 @@ void WebServerManager::handleRoot() {
         return;
     }
 
-    unsigned long best = 0;
-    if (!_elapsedTimes.empty()) {
-        best = *std::min_element(_elapsedTimes.begin(), _elapsedTimes.end());
-    }
     html.replace("%LAST%", formatTime(_lastTime));
-    html.replace("%BEST%", formatTime(best));
+    html.replace("%BEST%", formatTime(_bestTime));
     html.replace("%TRIGGER_STATE%", _triggerArmed ? "ARMED" : "DISARMED");
     html.replace("%TRIGGER_BUTTON%", _triggerArmed ? "Disarm Trigger" : "Arm Trigger");
     html.replace("%TRIGGER_ARMED%", _triggerArmed ? "true" : "false");
@@ -340,6 +424,14 @@ void WebServerManager::handleTriggerControl() {
 
 void WebServerManager::handleBrightnessState() {
     _server.send(200, "application/json", buildBrightnessStateJson());
+}
+
+void WebServerManager::handleRevisionState() {
+    _server.send(200, "application/json", buildRevisionJson());
+}
+
+void WebServerManager::handleDashboardState() {
+    _server.send(200, "application/json", buildDashboardJson());
 }
 
 void WebServerManager::handleBrightnessControl() {
@@ -380,6 +472,27 @@ void WebServerManager::handleClear() {
         Serial.println("Cleared times from SPIFFS");
     }
     
+    invalidateTimesCache();
+    invalidateStatsCache();
+    invalidateDashboardCache();
     updateStats(0, 0);
     _server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void WebServerManager::invalidateTimesCache() {
+    _timesJsonDirty = true;
+    _dashboardJsonDirty = true;
+}
+
+void WebServerManager::invalidateStatsCache() {
+    _statsJsonDirty = true;
+    _dashboardJsonDirty = true;
+}
+
+void WebServerManager::invalidateDashboardCache() {
+    _dashboardJsonDirty = true;
+}
+
+void WebServerManager::touchRevision() {
+    ++_revision;
 }
