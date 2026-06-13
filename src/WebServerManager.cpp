@@ -11,8 +11,6 @@ WebServerManager::WebServerManager(uint16_t port)
     : _server(port),
       _lastTime(0),
       _bestTime(0),
-      _avgTime(0),
-      _count(0),
       _triggerArmed(true),
       _displayBrightness(8),
       _elapsedTimes(),
@@ -119,6 +117,12 @@ void WebServerManager::handleWifiForm() {
 void WebServerManager::handleWifiSave() {
     String ssid = _server.arg("ssid");
     String password = _server.arg("password");
+
+    if (ssid.length() == 0) {
+        _server.send(400, "text/html",
+            "<html><body>Error: SSID cannot be empty.</body></html>");
+        return;
+    }
     
     // Save to NVS (Preferences)
     Preferences prefs;
@@ -181,7 +185,7 @@ void WebServerManager::setTrackingResetHandler(std::function<void()> handler) {
     _trackingResetHandler = std::move(handler);
 }
 
-void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count) {
+void WebServerManager::updateStats(unsigned long lastTime, unsigned long bestTime) {
     _lastTime = lastTime;
     _bestTime = bestTime;
 }
@@ -292,30 +296,24 @@ void WebServerManager::handleRoot() {
     if (file) {
         html = file.readString();
         file.close();
-        Serial.println("Loaded index.html from SPIFFS");
-    } else {
-        Serial.println("ERROR: index.html not found in SPIFFS, using fallback page");
     }
 
     if (html.length() == 0) {
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>SPIFFS Error</title></head><body><h1>Greska pri ucitavanju SPIFFS sadrzaja</h1><p>Datoteka /index.html nije dostupna ili je prazna.</p></body></html>";
-    }
-    // Generate table rows
-    String tableRows;
-    std::vector<unsigned long> sorted = _elapsedTimes;
-    std::sort(sorted.begin(), sorted.end());
-    for (size_t i = 0; i < sorted.size(); ++i) {
-        tableRows += "<tr><td>" + String(i + 1) + "</td><td>" + formatTime(sorted[i]) + "</td></tr>";
+        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+               "<title>SPIFFS Error</title></head><body>"
+               "<h1>Greska pri ucitavanju SPIFFS sadrzaja</h1>"
+               "<p>Datoteka /index.html nije dostupna ili je prazna.</p>"
+               "</body></html>";
+        _server.send(200, "text/html", html);
+        return;
     }
 
-    // Always select best time from vector
     unsigned long best = 0;
-    if (!sorted.empty()) {
-        best = sorted[0]; // sorted ascending, so first is best
+    if (!_elapsedTimes.empty()) {
+        best = *std::min_element(_elapsedTimes.begin(), _elapsedTimes.end());
     }
     html.replace("%LAST%", formatTime(_lastTime));
     html.replace("%BEST%", formatTime(best));
-    html.replace("%TABLE%", tableRows);
     html.replace("%TRIGGER_STATE%", _triggerArmed ? "ARMED" : "DISARMED");
     html.replace("%TRIGGER_BUTTON%", _triggerArmed ? "Disarm Trigger" : "Arm Trigger");
     html.replace("%TRIGGER_ARMED%", _triggerArmed ? "true" : "false");
@@ -362,7 +360,7 @@ void WebServerManager::handleBrightnessControl() {
 
 
 void WebServerManager::handleReset() {
-    updateStats(0, 0, 0, _count);
+    updateStats(0, 0);
     StopwatchDisplay::getInstance().showTime("00:00:00");
     Stopwatch::getInstance().reset();
     if (_trackingResetHandler) {
@@ -382,6 +380,6 @@ void WebServerManager::handleClear() {
         Serial.println("Cleared times from SPIFFS");
     }
     
-    updateStats(0, 0, 0, 0);
+    updateStats(0, 0);
     _server.send(200, "application/json", "{\"ok\":true}");
 }

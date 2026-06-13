@@ -19,7 +19,6 @@ private:
     Stopwatch();
     Stopwatch(const Stopwatch&) = delete;
     Stopwatch& operator=(const Stopwatch&) = delete;
-    static Stopwatch* _instance;
     unsigned long _startTime;
     unsigned long _endTime;
     bool _running;

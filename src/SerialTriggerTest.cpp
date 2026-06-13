@@ -35,7 +35,7 @@ bool consumeTriggerIfReady(unsigned long now, unsigned long ignoreUntil) {
         return false;
     }
 
-    if (now < ignoreUntil) {
+    if ((long)(now - ignoreUntil) < 0) {
         return false;
     }
 

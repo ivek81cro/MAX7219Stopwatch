@@ -12,7 +12,7 @@ class WebServerManager {
 public:
     WebServerManager(uint16_t port = 80);
     void begin();
-    void updateStats(unsigned long lastTime, unsigned long bestTime, unsigned long avgTime, int count);
+    void updateStats(unsigned long lastTime, unsigned long bestTime);
     void addElapsed(unsigned long elapsed);
     void handleClient();
     bool saveTimes();
@@ -27,8 +27,6 @@ private:
     WebServer _server;
     unsigned long _lastTime;
     unsigned long _bestTime;
-    unsigned long _avgTime;
-    int _count;
     bool _triggerArmed;
     uint8_t _displayBrightness;
     std::vector<unsigned long> _elapsedTimes;

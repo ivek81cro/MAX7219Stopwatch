@@ -19,8 +19,6 @@ StatusLed statusLed(12);
 WebServerManager webServer;
 Preferences preferences;
 unsigned long bestTime = 0;
-unsigned long totalTime = 0;
-int finishedCount = 0;
 
 namespace {
 enum class RaceState {
@@ -174,7 +172,7 @@ void loop() {
 
     statusLed.set(active);
 
-    if (now < ignoreUntil) {
+    if ((long)(now - ignoreUntil) < 0) {
         lastLaserState = active;
         updateDisplayFromElapsed(Stopwatch::getInstance().elapsed());
         webServer.handleClient();
@@ -200,10 +198,7 @@ void loop() {
                 if (bestTime == 0 || lastTime < bestTime) {
                     bestTime = lastTime;
                 }
-                totalTime += lastTime;
-                finishedCount++;
-                const unsigned long avgTime = finishedCount ? totalTime / finishedCount : 0;
-                webServer.updateStats(lastTime, bestTime, avgTime, finishedCount);
+                webServer.updateStats(lastTime, bestTime);
                 raceState = RaceState::Finished;
                 break;
             }

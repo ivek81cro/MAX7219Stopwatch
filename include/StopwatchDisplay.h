@@ -23,7 +23,6 @@ private:
     StopwatchDisplay(MD_MAX72XX::moduleType_t hardwareType, uint8_t dataPin, uint8_t clkPin, uint8_t csPin, uint8_t maxDevices, uint8_t totalColumns);
     StopwatchDisplay(const StopwatchDisplay&) = delete;
     StopwatchDisplay& operator=(const StopwatchDisplay&) = delete;
-    static StopwatchDisplay* _instance;
     MD_MAX72XX _mx;
     uint8_t _totalColumns;
     bool _flipUpsideDown = false;
